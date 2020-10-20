@@ -111,6 +111,7 @@ module Data.Vector.Generic (
   -- * Folding
   foldl, foldl1, foldl', foldl1', foldr, foldr1, foldr', foldr1',
   ifoldl, ifoldl', ifoldr, ifoldr',
+  foldMap, foldMap',
 
   -- ** Specialised folds
   all, any, and, or,
@@ -194,7 +195,7 @@ import Prelude hiding ( length, null,
                         zipWith, zipWith3, zip, zip3, unzip, unzip3,
                         filter, takeWhile, dropWhile, span, break,
                         elem, notElem,
-                        foldl, foldl1, foldr, foldr1,
+                        foldl, foldl1, foldr, foldr1, foldMap,
                         all, any, and, or, sum, product, maximum, minimum,
                         scanl, scanl1, scanr, scanr1,
                         enumFromTo, enumFromThenTo,
@@ -1622,6 +1623,24 @@ ifoldr' :: Vector v a => (Int -> a -> b -> b) -> b -> v a -> b
 ifoldr' f z xs = Bundle.foldl' (flip (uncurry f)) z
                $ Bundle.indexedR (length xs) $ streamR xs
 
+-- | @since NEXT
+-- /O(n)/ Map each element of the structure to a monoid, and combine
+-- the results. This function is implemented in terms of 'foldr' in
+-- the same way as default implementation in 'Foldable' type class.
+foldMap :: (Monoid m, Vector v a) => (a -> m) -> v a -> m
+{-# INLINE foldMap #-}
+foldMap f = foldr (mappend . f) mempty
+
+-- | @since NEXT
+-- /O(n)/ 'foldMap' which is strict in accumulator. It's implemented
+-- in terms of 'foldl'' in the same way as default implementation in
+-- 'Foldable' type class.
+foldMap' :: (Monoid m, Vector v a) => (a -> m) -> v a -> m
+{-# INLINE foldMap' #-}
+foldMap' f = foldl' (\acc a -> acc <> f a) mempty
+
+
+
 -- Specialised folds
 -- -----------------
 
@@ -2295,3 +2314,6 @@ dataCast :: (Vector v a, Data a, Typeable v, Typeable t)
          => (forall d. Data  d => c (t d)) -> Maybe  (c (v a))
 {-# INLINE dataCast #-}
 dataCast f = gcast1 f
+
+-- $setup
+-- >>> :set -XFlexibleContexts
