@@ -1,5 +1,5 @@
 {-# LANGUAGE Rank2Types, MultiParamTypeClasses, FlexibleContexts,
-             TypeFamilies, ScopedTypeVariables, BangPatterns #-}
+             TypeFamilies, ScopedTypeVariables, BangPatterns, DeriveFunctor #-}
 {-# LANGUAGE CPP #-}
 #if __GLASGOW_HASKELL__ >= 800
 {-# LANGUAGE TypeFamilyDependencies #-}
@@ -24,6 +24,7 @@ module Data.Vector.Generic.Base (
 
 import           Data.Vector.Generic.Mutable.Base ( MVector )
 import qualified Data.Vector.Generic.Mutable.Base as M
+import           Data.Vector.Fusion.Util (Box(..), liftBox)
 
 import Control.Monad.ST
 import Control.Monad.Primitive
@@ -106,7 +107,7 @@ class MVector (Mutable v) a => Vector v a where
   -- which does not have this problem because indexing (but not the returned
   -- element!) is evaluated immediately.
   --
-  basicUnsafeIndexM  :: Monad m => v a -> Int -> m a
+  basicUnsafeIndexM  :: v a -> Int -> Box a
 
   -- |  /Assumed complexity: O(n)/
   --
@@ -126,7 +127,7 @@ class MVector (Mutable v) a => Vector v a where
       !n = basicLength src
 
       do_copy i | i < n = do
-                            x <- basicUnsafeIndexM src i
+                            x <- liftBox $ basicUnsafeIndexM src i
                             M.basicUnsafeWrite dst i x
                             do_copy (i+1)
                 | otherwise = return ()
