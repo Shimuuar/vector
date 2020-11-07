@@ -134,6 +134,7 @@ module Data.Vector.Unboxed (
   -- * Folding
   foldl, foldl1, foldl', foldl1', foldr, foldr1, foldr', foldr1',
   ifoldl, ifoldl', ifoldr, ifoldr',
+  foldMap, foldMap',
 
   -- ** Specialised folds
   all, any, and, or,
@@ -187,7 +188,7 @@ import Prelude hiding ( length, null,
                         zipWith, zipWith3, zip, zip3, unzip, unzip3,
                         filter, takeWhile, dropWhile, span, break,
                         elem, notElem,
-                        foldl, foldl1, foldr, foldr1,
+                        foldl, foldl1, foldr, foldr1, foldMap,
                         all, any, and, or, sum, product, minimum, maximum,
                         scanl, scanl1, scanr, scanr1,
                         enumFromTo, enumFromThenTo,
@@ -1213,6 +1214,22 @@ ifoldr = G.ifoldr
 ifoldr' :: Unbox a => (Int -> a -> b -> b) -> b -> Vector a -> b
 {-# INLINE ifoldr' #-}
 ifoldr' = G.ifoldr'
+
+-- | @since NEXT
+-- /O(n)/ Map each element of the structure to a monoid, and combine
+-- the results. This function is implemented in terms of 'foldr' in
+-- the same way as default implementation in 'Foldable' type class.
+foldMap :: (Monoid m, Unbox a) => (a -> m) -> Vector a -> m
+{-# INLINE foldMap #-}
+foldMap = G.foldMap
+
+-- | @since NEXT
+-- /O(n)/ 'foldMap' which is strict in accumulator. It's implemented
+-- in terms of 'foldl'' in the same way as default implementation in
+-- 'Foldable' type class.
+foldMap' :: (Monoid m, Unbox a) => (a -> m) -> Vector a -> m
+{-# INLINE foldMap' #-}
+foldMap' = G.foldMap'
 
 -- Specialised folds
 -- -----------------
