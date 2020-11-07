@@ -1637,7 +1637,7 @@ foldMap f = foldr (mappend . f) mempty
 -- 'Foldable' type class.
 foldMap' :: (Monoid m, Vector v a) => (a -> m) -> v a -> m
 {-# INLINE foldMap' #-}
-foldMap' f = foldl' (\acc a -> acc <> f a) mempty
+foldMap' f = foldl' (\acc a -> acc `mappend` f a) mempty
 
 
 
