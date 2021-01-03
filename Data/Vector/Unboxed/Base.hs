@@ -1,3 +1,5 @@
+{-# LANGUAGE DerivingVia       #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE BangPatterns, CPP, MultiParamTypeClasses, TypeFamilies, FlexibleContexts #-}
 {-# LANGUAGE DeriveDataTypeable, StandaloneDeriving #-}
 {-# LANGUAGE PolyKinds #-}
@@ -297,8 +299,8 @@ instance G.Vector Vector ty where {                                     \
 newtype instance MVector s Int = MV_Int (P.MVector s Int)
 newtype instance Vector    Int = V_Int  (P.Vector    Int)
 instance Unbox Int
-primMVector(Int, MV_Int)
-primVector(Int, V_Int, MV_Int)
+deriving via (UnboxViaPrim Int) instance M.MVector MVector Int
+deriving via (UnboxViaPrim Int) instance G.Vector Vector Int
 
 newtype instance MVector s Int8 = MV_Int8 (P.MVector s Int8)
 newtype instance Vector    Int8 = V_Int8  (P.Vector    Int8)
