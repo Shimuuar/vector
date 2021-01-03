@@ -421,8 +421,8 @@ drop n v = unsafeSlice (delay_inline min n' len)
 --
 -- Note that @'splitAt' n v@ is equivalent to @('take' n v, 'drop' n v)@
 -- but slightly more efficient.
-{-# INLINE_FUSED splitAt #-}
 splitAt :: Vector v a => Int -> v a -> (v a, v a)
+{-# INLINE_FUSED splitAt #-}
 splitAt n v = ( unsafeSlice 0 m v
               , unsafeSlice m (delay_inline max 0 (len - n')) v
               )

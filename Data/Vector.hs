@@ -628,8 +628,8 @@ drop = G.drop
 --
 -- Note that @'splitAt' n v@ is equivalent to @('take' n v, 'drop' n v)@
 -- but slightly more efficient.
-{-# INLINE splitAt #-}
 splitAt :: Int -> Vector a -> (Vector a, Vector a)
+{-# INLINE splitAt #-}
 splitAt = G.splitAt
 
 -- | /O(1)/ Yield the 'head' and 'tail' of the vector, or 'Nothing' if empty.
