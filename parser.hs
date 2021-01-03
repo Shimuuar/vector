@@ -4,7 +4,8 @@
 {-# LANGUAGE StandaloneDeriving #-}
 module Foo where
 
-import GHC 
+import Debug.Trace
+import GHC
 import Data.Foldable
 import Data.Monoid
 import Data.List (isPrefixOf)
@@ -112,15 +113,39 @@ copyOneHaddock from to
   | otherwise                        = Endo $ Map.adjust replace (hdkAnnotation to)
   where
     replace a = a { Exact.annPriorComments = repl $ Exact.annPriorComments a }
-    repl = add
-         . reverse . drop (length $ hdkHaddock to) . reverse
-    add c = c <> [ ( Exact.Comment str (UnhelpfulSpan "") Nothing
-                   , Exact.DP (1, 0)
-                   )
-                 | str <- hdkHaddock from
-                 ]
+
+    repl old = keep ++ merge old (hdkHaddock from)
+      where
+        -- Number of non-haddock lines
+        n = length old - length (hdkHaddock to)
+        (keep,replace) = splitAt n old
+        --
+        merge _ [] = []
+        merge ((Exact.Comment _ sp _, dp):olds) (cmt:news)
+          = (Exact.Comment cmt sp Nothing, dp)
+          : merge olds news
+        merge [] (cmt:news)
+          = (Exact.Comment cmt (UnhelpfulSpan "") Nothing, Exact.DP (1,0))
+          : merge [] news
+
+
+
+    -- new = replicate (
+    --
+    -- nTo = length $
+
+    -- repl = add
+    --      . reverse
+    --      . drop (length $ hdkHaddock to)
+    --      . (\x -> trace (("===\n" ++) $ unlines $ map show $ take (length $ hdkHaddock to) x) x)
+    --      . reverse
+    -- add c = c <> [ ( Exact.Comment str (UnhelpfulSpan "") Nothing
+    --                , Exact.DP (1, 0)
+    --                )
+    --              | str <- hdkHaddock from
+    --              ]
 -- copyOneHaddock Haddock{..} = EndoMap.adjust undefined hdk
-  
+
 
 test :: IO ()
 test = do
@@ -139,7 +164,7 @@ test = do
     Right (anns,ast) -> do
       let ppr :: Exact.Annotate ast => Located ast -> String
           ppr x = Exact.exactPrint x anns
-      -- 
+      --
       let L _ (HsModule{ hsmodDecls   = decls
                        , hsmodExports = Just (L _ exports)
                        }
@@ -158,8 +183,8 @@ test = do
                  | d@(L loc (SigD NoExt (TypeSig NoExt [i@(L _ nm)] _))) <- decls
                  , nm `Set.member` exported
                  ]
-      
-      -- mapM_ print [ anns ! a | a <- defs ]    
+
+      -- mapM_ print [ anns ! a | a <- defs ]
       let extraC = Exact.Comment "-- XXX" (UnhelpfulSpan "") Nothing
       -- Append to every comment
       let inc (Exact.DP (y,x)) = Exact.DP (y+1,x)
@@ -247,8 +272,8 @@ test = do
 --   --             ]
 --   -- runGhc (Just libdir) $ getSessionDynFlags
 --   -- env    <- getSession
---   -- dflags <- 
-  
+--   -- dflags <-
+
 --   -- target <- guessTarget "Data/Vector/Generic.hs" Nothing
 --   -- setTargets [target]
 --   -- load LoadAllTargets
