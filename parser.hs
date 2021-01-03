@@ -41,6 +41,18 @@ data VecMod = VecMod
     -- ^ Information about haddocks attached to the top level definitions
   }
 
+stashCPP :: String -> String
+stashCPP = unlines . map stash . lines
+  where
+    stash ('#':s) = '-':'-':' ':'#':s
+    stash s       = s
+
+unstashCPP :: String -> String
+unstashCPP = unlines . map unstash . lines
+  where
+    unstash ('-':'-':' ':'#':s) = '#':s
+    unstash s                   = s
+
 makeHaddock :: Exact.Anns -> Exact.AnnKey -> Haddock
 makeHaddock anns k = Haddock
   { hdkAnnotation = k
@@ -53,7 +65,8 @@ makeHaddock anns k = Haddock
 
 parseVectorMod :: FilePath -> IO VecMod
 parseVectorMod path = do
-  Exact.parseModule path >>= \case
+  str <- readFile path
+  Exact.parseModuleFromString path (stashCPP str) >>= \case
     Left  err -> do
       mapM_ print err
       error "Cannot proceed"
@@ -76,6 +89,9 @@ parseVectorMod path = do
         , vecAST     = ast
         , vecExpKeys = keys
         }
+
+pprVectorMod :: VecMod -> String
+pprVectorMod m = unstashCPP $ Exact.exactPrint (vecAST m) (vecAnns m)
 
 ----------------------------------------------------------------
 -- Adjust comments
@@ -111,8 +127,7 @@ test = do
   mG <- parseVectorMod "Data/Vector/Generic.hs"
   mV <- parseVectorMod "Data/Vector.hs"
   let mV' = copyHaddock mG mV
-      m   = Exact.exactPrint (vecAST mV') (vecAnns mV')
-  writeFile "Data/Vector.hs" m
+  writeFile "Data/Vector.hs" $ pprVectorMod mV'
   -- mapM_ print $ vecExpKeys m
   return ()
 {-
