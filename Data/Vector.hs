@@ -954,7 +954,9 @@ unsafeUpdate_ = G.unsafeUpdate_
 -- | /O(m+n)/ For each pair @(i,b)@ from the list, replace the vector element
 -- @a@ at position @i@ by @f a b@.
 --
--- > accum (+) <5,9,2> [(2,4),(1,6),(0,3),(1,7)] = <5+3, 9+6+7, 2+4>
+-- >>> import qualified Data.Vector as V
+-- >>> V.accum (+) (V.fromList [1000,2000,3000]) [(2,4),(1,6),(0,3),(1,10)]
+-- [1003,2016,3004]
 accum :: (a -> b -> a) -- ^ accumulating function @f@
       -> Vector a      -- ^ initial vector (of length @m@)
       -> [(Int,b)]     -- ^ list of index/value pairs (of length @n@)
@@ -965,7 +967,9 @@ accum = G.accum
 -- | /O(m+n)/ For each pair @(i,b)@ from the vector of pairs, replace the vector
 -- element @a@ at position @i@ by @f a b@.
 --
--- > accumulate (+) <5,9,2> <(2,4),(1,6),(0,3),(1,7)> = <5+3, 9+6+7, 2+4>
+-- >>> import qualified Data.Vector as V
+-- >>> V.accumulate (+) (V.fromList [1000,2000,3000]) (V.fromList [(2,4),(1,6),(0,3),(1,10)])
+-- [1003,2016,3004]
 accumulate :: (a -> b -> a)  -- ^ accumulating function @f@
             -> Vector a       -- ^ initial vector (of length @m@)
             -> Vector (Int,b) -- ^ vector of index/value pairs (of length @n@)
