@@ -62,6 +62,8 @@ jobs:
     - name: Unpack
       run: |
         tar xzf vector*tar.gz
+        pwd
+        ls -l
         cd vector-*
     # ----------------
 #    - name: cabal check
