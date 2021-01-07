@@ -62,10 +62,13 @@ jobs:
         cabal sdist -o sdist
     - name: Unpack
       run: |
-        mkdir unpacked
-        tar -C unpacked xzf sdist/vector*tar.gz
-        cd unpacked
+        pwd
         ls -l
+        mkdir unpacked
+        tar -C unpacked -xzf sdist/vector*tar.gz
+        cd unpacked
+
+
     # ----------------
 #    - name: cabal check
 #      run: |
