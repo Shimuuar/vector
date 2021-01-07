@@ -58,13 +58,14 @@ jobs:
     # ----------------
     - name: Make sdist
       run: |
-        cabal sdist -o .
+        mkdir sdist
+        cabal sdist -o sdist
     - name: Unpack
       run: |
-        tar xzf vector*tar.gz
-        pwd
+        mkdir unpacked
+        tar -C unpacked xzf sdist/vector*tar.gz
+        cd unpacked
         ls -l
-        cd vector-*
     # ----------------
 #    - name: cabal check
 #      run: |
