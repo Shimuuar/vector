@@ -13,9 +13,14 @@ jobs:
     strategy:
       matrix:
         include:
+          # Linux
+          - { cabal: "3.2", os: ubuntu-latest,  ghc: "7.10.3" }
+          - { cabal: "3.2", os: ubuntu-latest,  ghc: "8.0.2" }
+          - { cabal: "3.2", os: ubuntu-latest,  ghc: "8.2.2" }
           - { cabal: "3.2", os: ubuntu-latest,  ghc: "8.4.4" }
-          - { cabal: "3.2", os: ubuntu-latest,  ghc: "8.6.5" }
-          - { cabal: "3.2", os: windows-latest, ghc: "8.6.5" }
+#          - { cabal: "3.2", os: ubuntu-latest,  ghc: "8.6.5" }
+          # Win
+#          - { cabal: "3.2", os: windows-latest, ghc: "8.6.5" }
 
 #        os:
 #          - ubuntu-latest
