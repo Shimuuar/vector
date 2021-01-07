@@ -69,8 +69,6 @@ jobs:
         mkdir unpacked
         tar -C unpacked -xzf sdist/vector*tar.gz
         cd unpacked
-
-
     # ----------------
     - name: cabal check
       run: |
