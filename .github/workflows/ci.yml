@@ -22,10 +22,10 @@ jobs:
           # - { cabal: "3.2", os: ubuntu-latest,  ghc: "8.8.4"  }
           # - { cabal: "3.2", os: ubuntu-latest,  ghc: "8.10.2" }
           # Win
-          - { cabal: "3.2", os: windows-latest, ghc: "8.4.4"  }
+#          - { cabal: "3.2", os: windows-latest, ghc: "8.4.4"  }
           - { cabal: "3.2", os: windows-latest, ghc: "8.6.5"  }
-          - { cabal: "3.2", os: windows-latest, ghc: "8.8.4"  }
-          - { cabal: "3.2", os: windows-latest, ghc: "8.10.1" }
+#          - { cabal: "3.2", os: windows-latest, ghc: "8.8.4"  }
+#          - { cabal: "3.2", os: windows-latest, ghc: "8.10.1" }
           # MacOS
           # - { cabal: "3.2", os: macOS-latest,   ghc: "8.4.4"  }
           # - { cabal: "3.2", os: macOS-latest,   ghc: "8.6.5"  }
@@ -62,8 +62,6 @@ jobs:
         cabal sdist -o sdist
     - name: Unpack
       run: |
-        pwd
-        ls -l
         mkdir unpacked
         tar -C unpacked -xzf sdist/vector*tar.gz
         cd unpacked
