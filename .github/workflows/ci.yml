@@ -14,31 +14,23 @@ jobs:
       matrix:
         include:
           # Linux
-          - { cabal: "3.2", os: ubuntu-latest,  ghc: "7.10.3" }
-          - { cabal: "3.2", os: ubuntu-latest,  ghc: "8.0.2" }
-          - { cabal: "3.2", os: ubuntu-latest,  ghc: "8.2.2" }
-          - { cabal: "3.2", os: ubuntu-latest,  ghc: "8.4.4" }
-#          - { cabal: "3.2", os: ubuntu-latest,  ghc: "8.6.5" }
+#          - { cabal: "3.2", os: ubuntu-latest,  ghc: "7.10.3" }
+#          - { cabal: "3.2", os: ubuntu-latest,  ghc: "8.0.2"  }
+#          - { cabal: "3.2", os: ubuntu-latest,  ghc: "8.2.2"  }
+#          - { cabal: "3.2", os: ubuntu-latest,  ghc: "8.4.4"  }
+#          - { cabal: "3.2", os: ubuntu-latest,  ghc: "8.6.5"  }
+          - { cabal: "3.2", os: ubuntu-latest,  ghc: "8.8.4"  }
+#          - { cabal: "3.2", os: ubuntu-latest,  ghc: "8.10.2" }
           # Win
-#          - { cabal: "3.2", os: windows-latest, ghc: "8.6.5" }
-
-#        os:
-#          - ubuntu-latest
-#          - macOS-latest
-#          - windows-latest
-#        cabal: ["3.2"]
-#        ghc:   []
-#        include:
-#          - { os: ubuntu-latest, ghc: "8.4.4" }
-#          - { os: ubuntu-latest, ghc: "8.6.5" }
-          #
-#          - { os: windows-latest, ghc: "8.6.5" }
-          
-#        ghc:
-#          - "8.4.4"
-#          - "8.6.5"
-#          - "8.8.4"
-#          - "8.10.2"
+#          - { cabal: "3.2", os: windows-latest, ghc: "8.4.4"  }
+#          - { cabal: "3.2", os: windows-latest, ghc: "8.6.5"  }
+#          - { cabal: "3.2", os: windows-latest, ghc: "8.8.4"  }
+#          - { cabal: "3.2", os: windows-latest, ghc: "8.10.1" }
+          # MacOS
+#          - { cabal: "3.2", os: macOS-latest,   ghc: "8.4.4"  }
+#          - { cabal: "3.2", os: macOS-latest,   ghc: "8.6.5"  }
+#          - { cabal: "3.2", os: macOS-latest,   ghc: "8.8.4"  }
+#          - { cabal: "3.2", os: macOS-latest,   ghc: "8.10.1" }
       fail-fast: false
 
     steps:
@@ -53,15 +45,20 @@ jobs:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: ${{ matrix.cabal }}
     # ----------------
-    - name: Freeze
-      run: |
-        cabal freeze
-    # ----------------
     - uses: actions/cache@v1
       name: Cache ~/.cabal/store
       with:
         path: ${{ steps.setup-haskell-cabal.outputs.cabal-store }}
-        key: ${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze') }}
+        key: ${{ runner.os }}-${{ matrix.ghc }}--${{ github.Shah }}
+    # ----------------
+    - name: Make sdist
+      run: |
+        cabal sdist -o - | tar xzf -
+        cd vector-*
+    # ----------------
+    - name: cabal check
+      run: |
+        cabal -vnormal check
     # ----------------
     - name: Build
       run: |
