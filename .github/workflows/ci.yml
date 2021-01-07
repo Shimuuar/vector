@@ -44,7 +44,7 @@ jobs:
 
     - name: Build
       run: |
-        cabal configure --enable-tests --enable-benchmarks --test-show-details=direct
+        cabal configure --enable-tests --enable-benchmarks
         cabal build all --write-ghc-environment-files=always
 
     - name: Test
