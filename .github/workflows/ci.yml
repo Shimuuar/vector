@@ -6,6 +6,10 @@ on:
   push:
     branches: [master]
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   cabal:
     name: ${{ matrix.os }} / ghc ${{ matrix.ghc }}
