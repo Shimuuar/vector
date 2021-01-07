@@ -12,16 +12,22 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os:
-          - ubuntu-latest
-          - macOS-latest
-          - windows-latest
-        cabal: ["3.2"]
         include:
-          - { os: ubuntu-latest, ghc: "8.4.4" }
-          - { os: ubuntu-latest, ghc: "8.6.5" }
+          - { cabal: "3.2", os: ubuntu-latest,  ghc: "8.4.4" }
+          - { cabal: "3.2", os: ubuntu-latest,  ghc: "8.6.5" }
+          - { cabal: "3.2", os: windows-latest, ghc: "8.6.5" }
+
+#        os:
+#          - ubuntu-latest
+#          - macOS-latest
+#          - windows-latest
+#        cabal: ["3.2"]
+#        ghc:   []
+#        include:
+#          - { os: ubuntu-latest, ghc: "8.4.4" }
+#          - { os: ubuntu-latest, ghc: "8.6.5" }
           #
-          - { os: windows-latest, ghc: "8.6.5" }
+#          - { os: windows-latest, ghc: "8.6.5" }
           
 #        ghc:
 #          - "8.4.4"
