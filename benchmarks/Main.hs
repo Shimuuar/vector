@@ -1,7 +1,7 @@
 module Main where
 
 import Gauge.Main
-
+import Foreign.C.Types (CDouble(..))
 import Algo.MutableSet (mutableSet)
 import Algo.ListRank   (listRank)
 import Algo.Rootfix    (rootfix)
@@ -27,7 +27,7 @@ useSize = 2000000
 useSeed :: Int
 useSeed = 42
 
-indexFindThreshold :: Double
+indexFindThreshold :: CDouble
 indexFindThreshold = 2e-5
 
 main :: IO ()
@@ -39,11 +39,11 @@ main = do
   lparens `seq` rparens `seq` nodes `seq` edges1 `seq` edges2 `seq` return ()
 
   let randomVector l = U.replicateM l (uniformDoublePositive01M gen)
-  as <- randomVector useSize
-  bs <- randomVector useSize
-  cs <- randomVector useSize
-  ds <- randomVector useSize
-  sp <- randomVector (floor $ sqrt $ fromIntegral useSize)
+  as <- U.map CDouble <$> randomVector useSize
+  bs <- U.map CDouble <$> randomVector useSize
+  cs <- U.map CDouble <$> randomVector useSize
+  ds <- U.map CDouble <$> randomVector useSize
+  sp <- U.map CDouble <$> randomVector (floor $ sqrt $ fromIntegral useSize)
   as `seq` bs `seq` cs `seq` ds `seq` sp `seq` return ()
 
   vi <- MV.new useSize

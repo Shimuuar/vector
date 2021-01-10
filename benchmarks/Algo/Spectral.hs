@@ -1,10 +1,10 @@
 module Algo.Spectral ( spectral ) where
 
 import Data.Vector.Unboxed as V
-
+import Foreign.C.Types
 import Data.Bits
 
-spectral :: Vector Double -> Vector Double
+spectral :: Vector CDouble -> Vector CDouble
 {-# NOINLINE spectral #-}
 spectral us = us `seq` V.map row (V.enumFromTo 0 (n-1))
     where

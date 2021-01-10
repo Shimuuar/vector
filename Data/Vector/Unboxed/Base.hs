@@ -28,6 +28,7 @@ import qualified Data.Vector.Generic.Mutable as M
 import qualified Data.Vector.Primitive as P
 
 import Control.Applicative (Const(..))
+import Foreign.C.Types (CDouble(..))
 
 import Control.DeepSeq ( NFData(rnf)
 #if MIN_VERSION_deepseq(1,4,3)
@@ -495,6 +496,12 @@ instance (Unbox a) => G.Vector Vector (Complex a) where
 -- -------
 -- Identity
 -- -------
+
+newtype instance MVector s CDouble = MV_CDouble (MVector s Double)
+newtype instance Vector    CDouble = V_CDouble  (Vector Double)
+instance Unbox CDouble
+deriving instance G.Vector  Vector  CDouble
+deriving instance M.MVector MVector CDouble
 
 newtype instance MVector s (Identity a) = MV_Identity (MVector s a)
 newtype instance Vector    (Identity a) = V_Identity  (Vector a)

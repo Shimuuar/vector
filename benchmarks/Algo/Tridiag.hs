@@ -1,9 +1,10 @@
 module Algo.Tridiag ( tridiag ) where
 
+import Foreign.C.Types (CDouble)
 import Data.Vector.Unboxed as V
 
-tridiag :: (Vector Double, Vector Double, Vector Double, Vector Double)
-            -> Vector Double
+tridiag :: (Vector CDouble, Vector CDouble, Vector CDouble, Vector CDouble)
+            -> Vector CDouble
 {-# NOINLINE tridiag #-}
 tridiag (as,bs,cs,ds) = V.prescanr' (\(c,d) x' -> d - c*x') 0
                       $ V.prescanl' modify (0,0)

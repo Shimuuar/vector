@@ -1,8 +1,8 @@
 module Algo.Quickhull (quickhull) where
-
+import Foreign.C.Types (CDouble)
 import Data.Vector.Unboxed as V
 
-quickhull :: (Vector Double, Vector Double) -> (Vector Double, Vector Double)
+quickhull :: (Vector CDouble, Vector CDouble) -> (Vector CDouble, Vector CDouble)
 {-# NOINLINE quickhull #-}
 quickhull (xs, ys) = xs' `seq` ys' `seq` (xs',ys')
     where
