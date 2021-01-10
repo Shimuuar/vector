@@ -184,21 +184,23 @@ instance G.Vector Vector () where
 -- >>> newtype instance U.Vector    Foo = V_Int  (P.Vector    Foo)
 -- >>> deriving via (U.UnboxViaPrim Foo) instance M.MVector MVector Foo
 -- >>> deriving via (U.UnboxViaPrim Foo) instance G.Vector  Vector  Foo
+-- >>> instance Unbox Foo
 --
 -- Second example is essentially same but with a twist. Instead of
--- using @Prim@ instance of Foo, we use underlying instance of @Int@:
+-- using @Prim@ instance of data type, we use underlying instance of @Int@:
 --
 -- >>> import qualified Data.Vector.Unboxed         as U
 -- >>> import qualified Data.Vector.Primitive       as P
 -- >>> import qualified Data.Vector.Generic         as G
 -- >>> import qualified Data.Vector.Generic.Mutable as M
 -- >>>
--- >>> newtype Foo = Foo Int deriving P.Prim
+-- >>> newtype Bar = Bar Int deriving P.Prim
 -- >>>
--- >>> newtype instance U.MVector s Foo = MV_Int (P.MVector s Int)
--- >>> newtype instance U.Vector    Foo = V_Int  (P.Vector    Int)
--- >>> deriving via (U.UnboxViaPrim Int) instance M.MVector MVector Foo
--- >>> deriving via (U.UnboxViaPrim Int) instance G.Vector  Vector  Foo
+-- >>> newtype instance U.MVector s Bar = MV_Int (P.MVector s Int)
+-- >>> newtype instance U.Vector    Bar = V_Int  (P.Vector    Int)
+-- >>> deriving via (U.UnboxViaPrim Int) instance M.MVector MVector Bar
+-- >>> deriving via (U.UnboxViaPrim Int) instance G.Vector  Vector  Bar
+-- >>> instance Unbox Foo
 newtype UnboxViaPrim a = UnboxViaPrim a
 
 newtype instance MVector s (UnboxViaPrim a) = MV_UnboxViaPrim (P.MVector s a)
@@ -653,3 +655,4 @@ deriveNewtypeInstances(Unbox (f (g a)), Compose f g a, f (g a), Compose, V_Compo
 -- >>> :set -XGeneralizedNewtypeDeriving
 -- >>> :set -XDataKinds
 -- >>> :set -XUnboxedTuples
+-- >>> :set -XPolyKinds
