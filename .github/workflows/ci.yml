@@ -24,7 +24,7 @@ jobs:
           # - { cabal: "3.4", os: ubuntu-latest,  ghc: "8.4.4"  }
           # - { cabal: "3.4", os: ubuntu-latest,  ghc: "8.6.5"  }
           # - { cabal: "3.4", os: ubuntu-latest,  ghc: "8.8.4"  }
-          # - { cabal: "3.4", os: ubuntu-latest,  ghc: "8.10.4" }
+          - { cabal: "3.4", os: ubuntu-latest,  ghc: "8.10.4" }
           # - { cabal: "3.4", os: ubuntu-latest,  ghc: "9.0.1"  }
           # Win
           # - { cabal: "3.2", os: windows-latest, ghc: "8.4.4"  }
@@ -82,8 +82,11 @@ jobs:
     # ----------------
     - name: Build
       run: |
-        cabal --ghc-option="-optl-no-pie" configure --haddock-all --enable-tests --enable-benchmarks --benchmark-option=-l
-        cabal --ghc-option="-optl-no-pie" build all --write-ghc-environment-files=always
+        if [ ${{matrix.ghc}} = 7.10.3 ]; then
+          EXTRA_FLAGS=--ghc-option="-optl-no-pie"
+        fi
+        cabal $EXTRA_FLAGS configure --haddock-all --enable-tests --enable-benchmarks --benchmark-option=-l
+        cabal $EXTRA_FLAGS build all --write-ghc-environment-files=always
     # ----------------
     - name: Test
       run: |
