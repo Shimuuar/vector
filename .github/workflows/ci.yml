@@ -18,7 +18,7 @@ jobs:
       matrix:
         include:
           # Linux
-          - { cabal: "3.4", os: ubuntu-18.04,  ghc: "7.10.3" }
+          - { cabal: "3.4", os: ubuntu-latest,  ghc: "7.10.3" }
           # - { cabal: "3.4", os: ubuntu-latest,  ghc: "8.0.2"  }
           # - { cabal: "3.4", os: ubuntu-latest,  ghc: "8.2.2"  }
           # - { cabal: "3.4", os: ubuntu-latest,  ghc: "8.4.4"  }
@@ -82,8 +82,8 @@ jobs:
     # ----------------
     - name: Build
       run: |
-        cabal configure --haddock-all --enable-tests --enable-benchmarks --benchmark-option=-l
-        cabal build all --write-ghc-environment-files=always
+        cabal --ghc-option="-optl-no-pie" configure --haddock-all --enable-tests --enable-benchmarks --benchmark-option=-l
+        cabal --ghc-option="-optl-no-pie" build all --write-ghc-environment-files=always
     # ----------------
     - name: Test
       run: |
