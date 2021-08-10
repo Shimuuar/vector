@@ -167,13 +167,15 @@ sized s sz = s { sSize = sz }
 -- | Length of a 'Bundle'
 length :: Monad m => Bundle m v a -> m Int
 {-# INLINE_FUSED length #-}
-length Bundle{sSize = Exact n}  = return n
+-- FIXME: SIZE
+-- length Bundle{sSize = Exact n}  = return n
 length Bundle{sChunks = s} = S.foldl' (\n (Chunk k _) -> n+k) 0 s
 
 -- | Check if a 'Bundle' is empty
 null :: Monad m => Bundle m v a -> m Bool
 {-# INLINE_FUSED null #-}
-null Bundle{sSize = Exact n} = return (n == 0)
+-- FIXME: SIZE
+-- null Bundle{sSize = Exact n} = return (n == 0)
 null Bundle{sChunks = s} = S.foldr (\(Chunk n _) z -> n == 0 && z) True s
 
 -- Construction
@@ -445,9 +447,10 @@ eqBy eq x y
   | otherwise                             = S.eqBy eq (sElems x) (sElems y)
   where
     sizesAreDifferent :: Size -> Size -> Bool
-    sizesAreDifferent (Exact a) (Exact b) = a /= b
-    sizesAreDifferent (Exact a) (Max b)   = a > b
-    sizesAreDifferent (Max a)   (Exact b) = a < b
+    -- FIXME: SIZE
+    -- sizesAreDifferent (Exact a) (Exact b) = a /= b
+    -- sizesAreDifferent (Exact a) (Max b)   = a > b
+    -- sizesAreDifferent (Max a)   (Exact b) = a < b
     sizesAreDifferent _         _         = False
 
 -- | Lexicographically compare two 'Bundle's
@@ -956,7 +959,7 @@ enumFromTo_big_word x y = x `seq` y `seq` fromStream (Stream step (Just x)) (Exa
 -- FIXME: the "too large" test is totally wrong
 enumFromTo_big_int :: forall m v a. (HasCallStack, Integral a, Monad m) => a -> a -> Bundle m v a
 {-# INLINE_FUSED enumFromTo_big_int #-}
-enumFromTo_big_int x y = x `seq` y `seq` fromStream (Stream step (Just x)) (Exact (len x y))
+enumFromTo_big_int x y = x `seq` y `seq` fromStream (Stream step (Just x)) (Range (len x y) (len x y))
   where
     {-# INLINE [0] len #-}
     len :: HasCallStack => a -> a -> Int
@@ -985,7 +988,7 @@ enumFromTo_big_int x y = x `seq` y `seq` fromStream (Stream step (Just x)) (Exac
 
 enumFromTo_char :: Monad m => Char -> Char -> Bundle m v Char
 {-# INLINE_FUSED enumFromTo_char #-}
-enumFromTo_char x y = x `seq` y `seq` fromStream (Stream step xn) (Exact n)
+enumFromTo_char x y = x `seq` y `seq` fromStream (Stream step xn) (Range n n)
   where
     xn = ord x
     yn = ord y
@@ -1091,7 +1094,7 @@ fromVector :: (Monad m, Vector v a) => v a -> Bundle m v a
 fromVector v = v `seq` n `seq` Bundle (Stream step 0)
                                       (Stream vstep True)
                                       (Just v)
-                                      (Exact n)
+                                      (Range n n)
   where
     n = basicLength v
 
@@ -1110,7 +1113,7 @@ fromVectors :: forall m v a. (Monad m, Vector v a) => [v a] -> Bundle m v a
 fromVectors us = Bundle (Stream pstep (Left us))
                         (Stream vstep us)
                         Nothing
-                        (Exact n)
+                        (Range n n)
   where
     n = List.foldl' (\k v -> k + basicLength v) 0 us
 
