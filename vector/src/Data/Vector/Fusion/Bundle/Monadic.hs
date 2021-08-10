@@ -162,13 +162,15 @@ sized s sz = s { sSize = sz }
 -- | Length of a 'Bundle'
 length :: Monad m => Bundle m v a -> m Int
 {-# INLINE_FUSED length #-}
-length Bundle{sSize = Exact n}  = return n
+-- FIXME: SIZE
+-- length Bundle{sSize = Exact n}  = return n
 length Bundle{sChunks = s} = S.foldl' (\n (Chunk k _) -> n+k) 0 s
 
 -- | Check if a 'Bundle' is empty
 null :: Monad m => Bundle m v a -> m Bool
 {-# INLINE_FUSED null #-}
-null Bundle{sSize = Exact n} = return (n == 0)
+-- FIXME: SIZE
+-- null Bundle{sSize = Exact n} = return (n == 0)
 null Bundle{sChunks = s} = S.foldr (\(Chunk n _) z -> n == 0 && z) True s
 
 -- Construction
@@ -177,12 +179,12 @@ null Bundle{sChunks = s} = S.foldr (\(Chunk n _) z -> n == 0 && z) True s
 -- | Empty 'Bundle'
 empty :: Monad m => Bundle m v a
 {-# INLINE_FUSED empty #-}
-empty = fromStream S.empty (Exact 0)
+empty = fromStream S.empty (exact 0)
 
 -- | Singleton 'Bundle'
 singleton :: Monad m => a -> Bundle m v a
 {-# INLINE_FUSED singleton #-}
-singleton x = fromStream (S.singleton x) (Exact 1)
+singleton x = fromStream (S.singleton x) (exact 1)
 
 -- | Replicate a value to a given length
 replicate :: Monad m => Int -> a -> Bundle m v a
@@ -190,7 +192,7 @@ replicate :: Monad m => Int -> a -> Bundle m v a
 replicate n x = Bundle (S.replicate n x)
                        (S.singleton $ Chunk len (\v -> stToPrim $ M.basicSet v x))
                        Nothing
-                       (Exact len)
+                       (exact len)
   where
     len = delay_inline max n 0
 
@@ -200,7 +202,7 @@ replicateM :: Monad m => Int -> m a -> Bundle m v a
 {-# INLINE_FUSED replicateM #-}
 -- NOTE: We delay inlining max here because GHC will create a join point for
 -- the call to newArray# otherwise which is not really nice.
-replicateM n p = fromStream (S.replicateM n p) (Exact (delay_inline max n 0))
+replicateM n p = fromStream (S.replicateM n p) (exact (delay_inline max n 0))
 
 generate :: Monad m => Int -> (Int -> a) -> Bundle m v a
 {-# INLINE generate #-}
@@ -209,7 +211,7 @@ generate n f = generateM n (return . f)
 -- | Generate a stream from its indices
 generateM :: Monad m => Int -> (Int -> m a) -> Bundle m v a
 {-# INLINE_FUSED generateM #-}
-generateM n f = fromStream (S.generateM n f) (Exact (delay_inline max n 0))
+generateM n f = fromStream (S.generateM n f) (exact (delay_inline max n 0))
 
 -- | Prepend an element
 cons :: Monad m => a -> Bundle m v a -> Bundle m v a
@@ -276,13 +278,13 @@ tail Bundle{sElems = s, sSize = sz} = fromStream (S.tail s) (sz-1)
 -- | The first @n@ elements
 take :: Monad m => Int -> Bundle m v a -> Bundle m v a
 {-# INLINE_FUSED take #-}
-take n Bundle{sElems = s, sSize = sz} = fromStream (S.take n s) (smallerThan n sz)
+take n Bundle{sElems = s, sSize = sz} = fromStream (S.take n s) (setUpperBound n sz)
 
 -- | All but the first @n@ elements
 drop :: Monad m => Int -> Bundle m v a -> Bundle m v a
 {-# INLINE_FUSED drop #-}
 drop n Bundle{sElems = s, sSize = sz} =
-  fromStream (S.drop n s) (clampedSubtract sz (Exact n))
+  fromStream (S.drop n s) (sz - exact n) --FIXME: specialize?
 
 -- Mapping
 -- -------
@@ -440,9 +442,10 @@ eqBy eq x y
   | otherwise                             = S.eqBy eq (sElems x) (sElems y)
   where
     sizesAreDifferent :: Size -> Size -> Bool
-    sizesAreDifferent (Exact a) (Exact b) = a /= b
-    sizesAreDifferent (Exact a) (Max b)   = a > b
-    sizesAreDifferent (Max a)   (Exact b) = a < b
+    -- FIXME: SIZE
+    -- sizesAreDifferent (Exact a) (Exact b) = a /= b
+    -- sizesAreDifferent (Exact a) (Max b)   = a > b
+    -- sizesAreDifferent (Max a)   (Exact b) = a < b
     sizesAreDifferent _         _         = False
 
 -- | Lexicographically compare two 'Bundle's
@@ -461,14 +464,14 @@ filter f = filterM (return . f)
 -- | Drop elements which do not satisfy the monadic predicate
 filterM :: Monad m => (a -> m Bool) -> Bundle m v a -> Bundle m v a
 {-# INLINE_FUSED filterM #-}
-filterM f Bundle{sElems = s, sSize = n} = fromStream (S.filterM f s) (toMax n)
+filterM f Bundle{sElems = s, sSize = n} = fromStream (S.filterM f s) (zeroLowerBound n)
 
 -- | Apply monadic function to each element and drop all Nothings
 --
 -- @since 0.12.2.0
 mapMaybeM :: Monad m => (a -> m (Maybe b)) -> Bundle m v a -> Bundle m v b
 {-# INLINE_FUSED mapMaybeM #-}
-mapMaybeM f Bundle{sElems = s, sSize = n} = fromStream (S.mapMaybeM f s) (toMax n)
+mapMaybeM f Bundle{sElems = s, sSize = n} = fromStream (S.mapMaybeM f s) (zeroLowerBound n)
 
 -- | Longest prefix of elements that satisfy the predicate
 takeWhile :: Monad m => (a -> Bool) -> Bundle m v a -> Bundle m v a
@@ -478,7 +481,7 @@ takeWhile f = takeWhileM (return . f)
 -- | Longest prefix of elements that satisfy the monadic predicate
 takeWhileM :: Monad m => (a -> m Bool) -> Bundle m v a -> Bundle m v a
 {-# INLINE_FUSED takeWhileM #-}
-takeWhileM f Bundle{sElems = s, sSize = n} = fromStream (S.takeWhileM f s) (toMax n)
+takeWhileM f Bundle{sElems = s, sSize = n} = fromStream (S.takeWhileM f s) (zeroLowerBound n)
 
 -- | Drop the longest prefix of elements that satisfy the predicate
 dropWhile :: Monad m => (a -> Bool) -> Bundle m v a -> Bundle m v a
@@ -488,7 +491,7 @@ dropWhile f = dropWhileM (return . f)
 -- | Drop the longest prefix of elements that satisfy the monadic predicate
 dropWhileM :: Monad m => (a -> m Bool) -> Bundle m v a -> Bundle m v a
 {-# INLINE_FUSED dropWhileM #-}
-dropWhileM f Bundle{sElems = s, sSize = n} = fromStream (S.dropWhileM f s) (toMax n)
+dropWhileM f Bundle{sElems = s, sSize = n} = fromStream (S.dropWhileM f s) (zeroLowerBound n)
 
 -- Searching
 -- ---------
@@ -630,7 +633,7 @@ concatMap f = concatMapM (return . f)
 
 concatMapM :: Monad m => (a -> m (Bundle m v b)) -> Bundle m v a -> Bundle m v b
 {-# INLINE_FUSED concatMapM #-}
-concatMapM f Bundle{sElems = s} = fromStream (S.concatMapM (liftM sElems . f) s) Unknown
+concatMapM f Bundle{sElems = s} = fromStream (S.concatMapM (liftM sElems . f) s) unknown
 
 -- | Create a 'Bundle' of values from a 'Bundle' of streamable things
 flatten :: Monad m => (a -> m s) -> (s -> m (Step s b)) -> Size
@@ -649,7 +652,7 @@ unfoldr f = unfoldrM (return . f)
 -- | Unfold with a monadic function
 unfoldrM :: Monad m => (s -> m (Maybe (a, s))) -> s -> Bundle m u a
 {-# INLINE_FUSED unfoldrM #-}
-unfoldrM f s = fromStream (S.unfoldrM f s) Unknown
+unfoldrM f s = fromStream (S.unfoldrM f s) unknown
 
 -- | Unfold at most @n@ elements
 unfoldrN :: Monad m => Int -> (s -> Maybe (a, s)) -> s -> Bundle m u a
@@ -660,6 +663,7 @@ unfoldrN n f = unfoldrNM n (return . f)
 unfoldrNM :: Monad m => Int -> (s -> m (Maybe (a, s))) -> s -> Bundle m u a
 {-# INLINE_FUSED unfoldrNM #-}
 unfoldrNM n f s = fromStream (S.unfoldrNM n f s) Unknown
+unfoldrNM n f s = fromStream (S.unfoldrNM n f s) (maxSize (delay_inline max n 0))
 
 -- | Unfold exactly @n@ elements
 --
@@ -673,14 +677,14 @@ unfoldrExactN n f = unfoldrExactNM n (return . f)
 -- @since 0.12.2.0
 unfoldrExactNM :: Monad m => Int -> (s -> m (a, s)) -> s -> Bundle m u a
 {-# INLINE_FUSED unfoldrExactNM #-}
-unfoldrExactNM n f s = fromStream (S.unfoldrExactNM n f s) (Max (delay_inline max n 0))
+unfoldrExactNM n f s = fromStream (S.unfoldrExactNM n f s) (maxSize (delay_inline max n 0))
 
 -- | /O(n)/ Apply monadic function \(\max(n - 1, 0)\) times to an initial value, producing
 -- a monadic bundle of exact length \(\max(n, 0)\). Zeroth element will contain the initial
 -- value.
 iterateNM :: Monad m => Int -> (a -> m a) -> a -> Bundle m u a
 {-# INLINE_FUSED iterateNM #-}
-iterateNM n f x0 = fromStream (S.iterateNM n f x0) (Exact (delay_inline max n 0))
+iterateNM n f x0 = fromStream (S.iterateNM n f x0) (exact (delay_inline max n 0))
 
 -- | /O(n)/ Apply function \(\max(n - 1, 0)\) times to an initial value, producing a
 -- monadic bundle of exact length \(\max(n, 0)\). Zeroth element will contain the initial
@@ -784,7 +788,7 @@ scanl1M' f Bundle{sElems = s, sSize = sz} = fromStream (S.scanl1M' f s) sz
 -- @x+y+y@ etc.
 enumFromStepN :: (Num a, Monad m) => a -> a -> Int -> Bundle m v a
 {-# INLINE_FUSED enumFromStepN #-}
-enumFromStepN x y n = fromStream (S.enumFromStepN x y n) (Exact (delay_inline max n 0))
+enumFromStepN x y n = fromStream (S.enumFromStepN x y n) (exact (delay_inline max n 0))
 
 -- | Enumerate values
 --
@@ -800,7 +804,7 @@ enumFromTo x y = fromList [x .. y]
 -- FIXME: add "too large" test for Int
 enumFromTo_small :: (Integral a, Monad m) => a -> a -> Bundle m v a
 {-# INLINE_FUSED enumFromTo_small #-}
-enumFromTo_small x y = x `seq` y `seq` fromStream (Stream step (Just x)) (Exact n)
+enumFromTo_small x y = x `seq` y `seq` fromStream (Stream step (Just x)) (exact n)
   where
     n = delay_inline max (fromIntegral y - fromIntegral x + 1) 0
 
@@ -852,7 +856,7 @@ enumFromTo_small x y = x `seq` y `seq` fromStream (Stream step (Just x)) (Exact 
 
 enumFromTo_int :: forall m v. (HasCallStack, Monad m) => Int -> Int -> Bundle m v Int
 {-# INLINE_FUSED enumFromTo_int #-}
-enumFromTo_int x y = x `seq` y `seq` fromStream (Stream step (Just x)) (Exact (len x y))
+enumFromTo_int x y = x `seq` y `seq` fromStream (Stream step (Just x)) (exact (len x y))
   where
     {-# INLINE [0] len #-}
     len :: HasCallStack => Int -> Int -> Int
@@ -869,7 +873,7 @@ enumFromTo_int x y = x `seq` y `seq` fromStream (Stream step (Just x)) (Exact (l
 
 enumFromTo_intlike :: forall m v a. (HasCallStack, Integral a, Monad m) => a -> a -> Bundle m v a
 {-# INLINE_FUSED enumFromTo_intlike #-}
-enumFromTo_intlike x y = x `seq` y `seq` fromStream (Stream step (Just x)) (Exact (len x y))
+enumFromTo_intlike x y = x `seq` y `seq` fromStream (Stream step (Just x)) (exact (len x y))
   where
     {-# INLINE [0] len #-}
     len :: HasCallStack => a -> a -> Int
@@ -907,7 +911,7 @@ enumFromTo_intlike x y = x `seq` y `seq` fromStream (Stream step (Just x)) (Exac
 
 enumFromTo_big_word :: forall m v a. (HasCallStack, Integral a, Monad m) => a -> a -> Bundle m v a
 {-# INLINE_FUSED enumFromTo_big_word #-}
-enumFromTo_big_word x y = x `seq` y `seq` fromStream (Stream step (Just x)) (Exact (len x y))
+enumFromTo_big_word x y = x `seq` y `seq` fromStream (Stream step (Just x)) (exact (len x y))
   where
     {-# INLINE [0] len #-}
     len :: HasCallStack => a -> a -> Int
@@ -951,7 +955,7 @@ enumFromTo_big_word x y = x `seq` y `seq` fromStream (Stream step (Just x)) (Exa
 -- FIXME: the "too large" test is totally wrong
 enumFromTo_big_int :: forall m v a. (HasCallStack, Integral a, Monad m) => a -> a -> Bundle m v a
 {-# INLINE_FUSED enumFromTo_big_int #-}
-enumFromTo_big_int x y = x `seq` y `seq` fromStream (Stream step (Just x)) (Exact (len x y))
+enumFromTo_big_int x y = x `seq` y `seq` fromStream (Stream step (Just x)) (exact (len x y))
   where
     {-# INLINE [0] len #-}
     len :: HasCallStack => a -> a -> Int
@@ -980,7 +984,7 @@ enumFromTo_big_int x y = x `seq` y `seq` fromStream (Stream step (Just x)) (Exac
 
 enumFromTo_char :: Monad m => Char -> Char -> Bundle m v Char
 {-# INLINE_FUSED enumFromTo_char #-}
-enumFromTo_char x y = x `seq` y `seq` fromStream (Stream step xn) (Exact n)
+enumFromTo_char x y = x `seq` y `seq` fromStream (Stream step xn) (exact n)
   where
     xn = ord x
     yn = ord y
@@ -1005,7 +1009,7 @@ enumFromTo_char x y = x `seq` y `seq` fromStream (Stream step xn) (Exact n)
 
 enumFromTo_double :: forall m v a. (HasCallStack, Monad m, Ord a, RealFrac a) => a -> a -> Bundle m v a
 {-# INLINE_FUSED enumFromTo_double #-}
-enumFromTo_double n m = n `seq` m `seq` fromStream (Stream step ini) (Max (len n lim))
+enumFromTo_double n m = n `seq` m `seq` fromStream (Stream step ini) (maxSize (len n lim))
   where
     lim = m + 1/2 -- important to float out
 
@@ -1069,12 +1073,12 @@ toList = foldr (:) []
 -- | Convert a list to a 'Bundle'
 fromList :: Monad m => [a] -> Bundle m v a
 {-# INLINE fromList #-}
-fromList xs = unsafeFromList Unknown xs
+fromList xs = unsafeFromList unknown xs
 
 -- | Convert the first @n@ elements of a list to a 'Bundle'
 fromListN :: Monad m => Int -> [a] -> Bundle m v a
 {-# INLINE_FUSED fromListN #-}
-fromListN n xs = fromStream (S.fromListN n xs) (Max (delay_inline max n 0))
+fromListN n xs = fromStream (S.fromListN n xs) (exact (delay_inline max n 0))
 
 -- | Convert a list to a 'Bundle' with the given 'Size' hint.
 unsafeFromList :: Monad m => Size -> [a] -> Bundle m v a
@@ -1086,7 +1090,7 @@ fromVector :: (Monad m, Vector v a) => v a -> Bundle m v a
 fromVector v = v `seq` n `seq` Bundle (Stream step 0)
                                       (Stream vstep True)
                                       (Just v)
-                                      (Exact n)
+                                      (exact n)
   where
     n = basicLength v
 
@@ -1105,7 +1109,7 @@ fromVectors :: forall m v a. (Monad m, Vector v a) => [v a] -> Bundle m v a
 fromVectors us = Bundle (Stream pstep (Left us))
                         (Stream vstep us)
                         Nothing
-                        (Exact n)
+                        (exact n)
   where
     n = List.foldl' (\k v -> k + basicLength v) 0 us
 
@@ -1134,7 +1138,7 @@ concatVectors Bundle{sElems = Stream step t}
   = Bundle (Stream pstep (Left t))
            (Stream vstep t)
            Nothing
-           Unknown
+           unknown
   where
     pstep (Left s) = do
       r <- step s

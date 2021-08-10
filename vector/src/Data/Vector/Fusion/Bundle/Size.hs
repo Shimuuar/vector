@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternSynonyms #-}
 -- |
 -- Module      : Data.Vector.Fusion.Bundle.Size
 -- Copyright   : (c) Roman Leshchinskiy 2008-2010
@@ -14,119 +15,107 @@
 --
 
 module Data.Vector.Fusion.Bundle.Size (
-  Size(..), clampedSubtract, smaller, smallerThan, larger, toMax, upperBound, lowerBound
+  Size(..), exact, unknown, maxSize,
+
+  {-clampedSubtract,-} smaller, {-smallerThan,-} larger
+  -- , toMax, upperBound, lowerBound
+  , zeroLowerBound
+  , setUpperBound
 ) where
 
 import Data.Vector.Fusion.Util ( delay_inline )
 
--- | Size hint
-data Size = Exact {-# UNPACK #-} !Int -- ^ Exact size
-          | Max   {-# UNPACK #-} !Int -- ^ Upper bound on the size
-          | Unknown                   -- ^ Unknown size
-        deriving( Eq, Show )
+-- | Hint about size of vector that will be produced from bundle. It's
+--   an interval which bounds size of produced vector.
+--
+--   Upper bound is treated specially. @maxBound::Int@ means unbounded
+--   stream and any estimate that overflows @Int@ is treated as
+--   unbounded.
+--
+--   Note that it's possible to create vectors with length @maxBound@
+--   since unboxed vectors for () use O(1) memory. So we won't run
+--   out of memory first.
+data Size = Size
+  { lowerBound :: !Int
+    -- ^ Lower bound on size of vector.
+  , upperBound :: !Int
+    -- ^ Upper bound on size of vector.
+  }
+  deriving( Eq, Show )
+
+-- | Hint for size that is known exactly
+exact :: Int -> Size
+exact n = Size n n
+
+-- | Unknown size
+unknown :: Size
+unknown = Size 0 maxBound
+
+-- | Hint for case when we have upper bound but no lower bound
+maxSize :: Int -> Size
+maxSize n = Size 0 n
 
 instance Num Size where
-  Exact m + Exact n = checkedAdd Exact m n
-  Exact m + Max   n = checkedAdd Max m n
-
-  Max   m + Exact n = checkedAdd Max m n
-  Max   m + Max   n = checkedAdd Max m n
-
-  _       + _       = Unknown
-
-
-  Exact m - Exact n = checkedSubtract Exact m n
-  Exact m - Max   _ = Max   m
-
-  Max   m - Exact n = checkedSubtract Max m n
-  Max   m - Max   _ = Max   m
-  Max   m - Unknown = Max   m
-
-  _       - _       = Unknown
-
-
-  fromInteger n     = Exact (fromInteger n)
+  Size lA uA + Size lB uB = Size (checkedAdd lA lB) (saturatedAdd uA uB)
+  --
+  Size lA uA - Size lB _
+    | uA == maxBound = Size lR maxBound
+    | otherwise      = Size lR (saturatedSub uA lB)
+    where
+      lR = saturatedSub lA lB
+  --
+  fromInteger = exact . fromInteger
 
   (*)    = error "vector: internal error * for Bundle.size isn't defined"
   abs    = error "vector: internal error abs for Bundle.size isn't defined"
   signum = error "vector: internal error signum for Bundle.size isn't defined"
 
+
+-- | Add two non-negative integers and in case of overflow return maxBound
+saturatedAdd :: Int -> Int -> Int
+saturatedAdd a b | n < 0     = maxBound
+                 | otherwise = n
+  where n = a + b
+
+-- | Subtract two non-negative integers. If result is negative it's set to zero
+saturatedSub :: Int -> Int -> Int
+saturatedSub a b | a < b     = 0
+                 | otherwise = a - b
+
+
+-- | Add two non-negative integers and throw error in case of overflow
+checkedAdd :: Int -> Int -> Int
 {-# INLINE checkedAdd #-}
-checkedAdd :: (Int -> Size) -> Int -> Int -> Size
-checkedAdd con m n
+checkedAdd m n
     -- Note: we assume m and n are >= 0.
   | r < m || r < n =
       error $ "Data.Vector.Fusion.Bundle.Size.checkedAdd: overflow: " ++ show r
-  | otherwise = con r
+  | otherwise = r
   where
     r = m + n
 
-{-# INLINE checkedSubtract #-}
-checkedSubtract :: (Int -> Size) -> Int -> Int -> Size
-checkedSubtract con m n
-  | r < 0 =
-      error $ "Data.Vector.Fusion.Bundle.Size.checkedSubtract: underflow: " ++ show r
-  | otherwise = con r
-  where
-    r = m - n
-
--- | Subtract two sizes with clamping to 0, for drop-like things
-{-# INLINE clampedSubtract #-}
-clampedSubtract :: Size -> Size -> Size
-clampedSubtract (Exact m) (Exact n) = Exact (max 0 (m - n))
-clampedSubtract (Max   m) (Exact n)
-  | m <= n = Exact 0
-  | otherwise = Max (m - n)
-clampedSubtract (Exact m) (Max   _) = Max m
-clampedSubtract (Max   m) (Max   _) = Max m
-clampedSubtract _         _ = Unknown
 
 -- | Minimum of two size hints
 smaller :: Size -> Size -> Size
 {-# INLINE smaller #-}
-smaller (Exact m) (Exact n) = Exact (delay_inline min m n)
-smaller (Exact m) (Max   n) = Max   (delay_inline min m n)
-smaller (Exact m) Unknown   = Max   m
-smaller (Max   m) (Exact n) = Max   (delay_inline min m n)
-smaller (Max   m) (Max   n) = Max   (delay_inline min m n)
-smaller (Max   m) Unknown   = Max   m
-smaller Unknown   (Exact n) = Max   n
-smaller Unknown   (Max   n) = Max   n
-smaller Unknown   Unknown   = Unknown
-
--- | Select a safe smaller than known size.
-smallerThan :: Int -> Size -> Size
-{-# INLINE smallerThan #-}
-smallerThan m (Exact n) = Exact (delay_inline min m n)
-smallerThan m (Max   n) = Max   (delay_inline min m n)
-smallerThan _ Unknown   = Unknown
+smaller (Size lA uA) (Size lB uB)
+  = Size (min lA lB) (min uA uB)
 
 
 -- | Maximum of two size hints
 larger :: Size -> Size -> Size
 {-# INLINE larger #-}
-larger (Exact m) (Exact n)             = Exact (delay_inline max m n)
-larger (Exact m) (Max   n) | m >= n    = Exact m
-                           | otherwise = Max   n
-larger (Max   m) (Exact n) | n >= m    = Exact n
-                           | otherwise = Max   m
-larger (Max   m) (Max   n)             = Max   (delay_inline max m n)
-larger _         _                     = Unknown
+larger (Size lA uA) (Size lB uB)
+  = Size (max lA lB) (max uA uB)
 
--- | Convert a size hint to an upper bound
-toMax :: Size -> Size
-toMax (Exact n) = Max n
-toMax (Max   n) = Max n
-toMax Unknown   = Unknown
 
--- | Compute the minimum size from a size hint
-lowerBound :: Size -> Int
-lowerBound (Exact n) = n
-lowerBound _         = 0
 
--- | Compute the maximum size from a size hint if possible
-upperBound :: Size -> Maybe Int
-upperBound (Exact n) = Just n
-upperBound (Max   n) = Just n
-upperBound Unknown   = Nothing
+-- | Set lower bound of size hint to zero
+zeroLowerBound :: Size -> Size
+{-# INLINE zeroLowerBound #-}
+zeroLowerBound (Size _ ub) = Size 0 ub
 
+-- | Set upper bound of size to given value
+setUpperBound :: Int -> Size -> Size
+{-# INLINE setUpperBound #-}
+setUpperBound n (Size lb ub) = Size (min n lb) (min n ub)

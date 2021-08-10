@@ -104,32 +104,31 @@ import Data.Bits ( Bits(shiftR) )
 -- Internal functions
 -- ------------------
 
-unsafeAppend1 :: (PrimMonad m, MVector v a)
-        => v (PrimState m) a -> Int -> a -> m (v (PrimState m) a)
+unsafeAppend1
+  :: (PrimMonad m, MVector v a)
+  => Int -> v (PrimState m) a -> Int -> a -> m (v (PrimState m) a)
 {-# INLINE_INNER unsafeAppend1 #-}
     -- NOTE: The case distinction has to be on the outside because
     -- GHC creates a join point for the unsafeWrite even when everything
     -- is inlined. This is bad because with the join point, v isn't getting
     -- unboxed.
-unsafeAppend1 v i x
-  | i < length v = do
-                     unsafeWrite v i x
-                     return v
-  | otherwise    = do
-                     v' <- enlarge v
-                     checkIndex Internal i (length v') $ unsafeWrite v' i x
-                     return v'
+unsafeAppend1 upTo v i x
+  | i < length v = do unsafeWrite v i x
+                      return v
+  | otherwise    = do v' <- enlargeUpTo upTo v
+                      checkIndex Internal i (length v') $ unsafeWrite v' i x
+                      return v'
 
 unsafePrepend1 :: (PrimMonad m, MVector v a)
-        => v (PrimState m) a -> Int -> a -> m (v (PrimState m) a, Int)
+        => Int -> v (PrimState m) a -> Int -> a -> m (v (PrimState m) a, Int)
 {-# INLINE_INNER unsafePrepend1 #-}
-unsafePrepend1 v i x
+unsafePrepend1 upTo v i x
   | i /= 0    = do
                   let i' = i-1
                   unsafeWrite v i' x
                   return (v, i')
   | otherwise = do
-                  (v', j) <- enlargeFront v
+                  (v', j) <- enlargeFrontUpTo upTo v
                   let i' = j-1
                   checkIndex Internal i' (length v') $ unsafeWrite v' i' x
                   return (v', i')
@@ -213,37 +212,36 @@ unstream s = munstream (Bundle.lift s)
 munstream :: (PrimMonad m, MVector v a)
           => MBundle m u a -> m (v (PrimState m) a)
 {-# INLINE_FUSED munstream #-}
-munstream s = case upperBound (MBundle.size s) of
-               Just n  -> munstreamMax     s n
-               Nothing -> munstreamUnknown s
+munstream s =
+  case MBundle.size s of
+    Size lb ub | lb == ub -> munstreamExact   s lb
+    _                     -> munstreamUnknown s
 
-munstreamMax :: (PrimMonad m, MVector v a)
-             => MBundle m u a -> Int -> m (v (PrimState m) a)
-{-# INLINE munstreamMax #-}
-munstreamMax s n
-  = do
-      v <- checkLength Internal n $ unsafeNew n
-      let put i x = do
-                       checkIndex Internal i n $ unsafeWrite v i x
-                       return (i+1)
-      n' <- MBundle.foldM' put 0 s
-      return $ checkSlice Internal 0 n' n
-             $ unsafeSlice 0 n' v
+munstreamExact
+  :: (PrimMonad m, MVector v a)
+  => MBundle m u a -> Int -> m (v (PrimState m) a)
+{-# INLINE munstreamExact #-}
+munstreamExact s n = do
+  v <- checkLength Internal n $ unsafeNew n
+  let put i x = do checkIndex Internal i n $ unsafeWrite v i x
+                   return (i+1)
+  n' <- MBundle.foldM' put 0 s
+  return $ checkSlice Internal 0 n' n
+         $ unsafeSlice 0 n' v
 
 munstreamUnknown :: (PrimMonad m, MVector v a)
                  => MBundle m u a -> m (v (PrimState m) a)
 {-# INLINE munstreamUnknown #-}
-munstreamUnknown s
-  = do
-      v <- unsafeNew 0
-      (v', n) <- MBundle.foldM put (v, 0) s
-      return $ checkSlice Internal 0 n (length v')
-             $ unsafeSlice 0 n v'
+munstreamUnknown s = do
+  v <- unsafeNew lb
+  (v', n) <- MBundle.foldM put (v, 0) s
+  return $ checkSlice Internal 0 n (length v')
+         $ unsafeSlice 0 n v'
   where
+    Size lb ub = MBundle.size s
     {-# INLINE_INNER put #-}
-    put (v,i) x = do
-                    v' <- unsafeAppend1 v i x
-                    return (v',i+1)
+    put (v,i) x = do v' <- unsafeAppend1 ub v i x
+                     return (v',i+1)
 
 
 -- | Create a new mutable vector and fill it with elements from the 'Bundle'.
@@ -261,14 +259,15 @@ vunstream s = vmunstream (Bundle.lift s)
 vmunstream :: (PrimMonad m, V.Vector v a)
            => MBundle m v a -> m (V.Mutable v (PrimState m) a)
 {-# INLINE_FUSED vmunstream #-}
-vmunstream s = case upperBound (MBundle.size s) of
-               Just n  -> vmunstreamMax     s n
-               Nothing -> vmunstreamUnknown s
+vmunstream s =
+  case MBundle.size s of
+    Size ub lb | lb == ub -> vmunstreamExact   s ub
+    _                     -> vmunstreamUnknown s
 
-vmunstreamMax :: (PrimMonad m, V.Vector v a)
+vmunstreamExact :: (PrimMonad m, V.Vector v a)
               => MBundle m v a -> Int -> m (V.Mutable v (PrimState m) a)
-{-# INLINE vmunstreamMax #-}
-vmunstreamMax s n
+{-# INLINE vmunstreamExact #-}
+vmunstreamExact s n
   = do
       v <- checkLength Internal n $ unsafeNew n
       let {-# INLINE_INNER copyChunk #-}
@@ -282,21 +281,23 @@ vmunstreamMax s n
              $ unsafeSlice 0 n' v
 
 vmunstreamUnknown :: (PrimMonad m, V.Vector v a)
-                 => MBundle m v a -> m (V.Mutable v (PrimState m) a)
+                  => MBundle m v a -> m (V.Mutable v (PrimState m) a)
 {-# INLINE vmunstreamUnknown #-}
 vmunstreamUnknown s
   = do
-      v <- unsafeNew 0
+      v <- unsafeNew lb
       (v', n) <- Stream.foldlM copyChunk (v,0) (MBundle.chunks s)
       return $ checkSlice Internal 0 n (length v')
              $ unsafeSlice 0 n v'
   where
+    lb = lowerBound $ MBundle.size s
+    ub = upperBound $ MBundle.size s
     {-# INLINE_INNER copyChunk #-}
     copyChunk (v,i) (Chunk n f)
       = do
           let j = i+n
           v' <- if basicLength v < j
-                  then unsafeGrow v (delay_inline max (enlarge_delta v) (j - basicLength v))
+                  then unsafeGrow v $ delay_inline enlarge_delta' v n ub
                   else return v
           checkSlice Internal i n (length v') $ f (basicUnsafeSlice i n v')
           return (v',j)
@@ -317,14 +318,15 @@ unstreamR s = munstreamR (Bundle.lift s)
 munstreamR :: (PrimMonad m, MVector v a)
            => MBundle m u a -> m (v (PrimState m) a)
 {-# INLINE_FUSED munstreamR #-}
-munstreamR s = case upperBound (MBundle.size s) of
-               Just n  -> munstreamRMax     s n
-               Nothing -> munstreamRUnknown s
+munstreamR s =
+  case MBundle.size s of
+    Size lb ub | lb == ub -> munstreamRExact   s lb
+    _                     -> munstreamRUnknown s
 
-munstreamRMax :: (PrimMonad m, MVector v a)
+munstreamRExact :: (PrimMonad m, MVector v a)
               => MBundle m u a -> Int -> m (v (PrimState m) a)
-{-# INLINE munstreamRMax #-}
-munstreamRMax s n
+{-# INLINE munstreamRExact #-}
+munstreamRExact s n
   = do
       v <- checkLength Internal n $ unsafeNew n
       let put i x = do
@@ -341,14 +343,15 @@ munstreamRUnknown :: (HasCallStack, PrimMonad m, MVector v a)
 {-# INLINE munstreamRUnknown #-}
 munstreamRUnknown s
   = do
-      v <- unsafeNew 0
+      v <- unsafeNew $ lowerBound $ MBundle.size s
       (v', i) <- MBundle.foldM put (v, 0) s
       let n = length v'
       return $ checkSlice Internal i (n-i) n
              $ unsafeSlice i (n-i) v'
   where
+    ub = upperBound $ MBundle.size s
     {-# INLINE_INNER put #-}
-    put (v,i) x = unsafePrepend1 v i x
+    put (v,i) x = unsafePrepend1 ub v i x
 
 -- Length
 -- ------
@@ -560,6 +563,27 @@ growFront v by = checkLength Bounds by
 enlarge_delta :: MVector v a => v s a -> Int
 enlarge_delta v = max (length v) 1
 
+enlarge_delta' :: MVector v a
+               => v s a
+               -> Int    -- Minimal increment
+               -> Int    -- Upper bound
+               -> Int
+enlarge_delta' v incMin upperBnd
+  -- We're trying to grow vector which already reached upper bound.
+  --
+  -- This could happen if vector upper limit is not correnct or if we
+  -- reached maxBound for stream that in fact larger than that. This
+  -- is actually possible without running out of memory on 32bit
+  -- platforms for unboxed vectors of ().
+  | n >= upperBnd = error "FIXME: we overflowed vector"
+  | otherwise     = d1
+  where
+    n  = length v
+    -- We double vector and want to increment length by at least n
+    d0 = n  `max` incMin
+    -- At the same time we want to avoid overshooting upperLimit
+    d1 = d0 `min` (upperBnd - n)
+
 -- | Grow a vector logarithmically.
 enlarge :: (PrimMonad m, MVector v a)
         => v (PrimState m) a -> m (v (PrimState m) a)
@@ -571,6 +595,21 @@ enlarge v = stToPrim $ do
   where
     by = enlarge_delta v
 
+-- | Grow a vector logarithmically.
+enlargeUpTo :: (PrimMonad m, MVector v a)
+            => Int -> v (PrimState m) a -> m (v (PrimState m) a)
+{-# INLINE enlargeUpTo #-}
+enlargeUpTo upTo v = stToPrim $ do
+  -- FIXME: elaborate dealing with overflow in size
+  vnew <- unsafeGrow v by
+  basicInitialize $ basicUnsafeSlice n by vnew
+  return vnew
+  where
+    n     = length v
+    delta = enlarge_delta v
+    by | delta + n <= upTo = delta
+       | otherwise         = upTo - n
+
 enlargeFront :: (PrimMonad m, MVector v a)
              => v (PrimState m) a -> m (v (PrimState m) a, Int)
 {-# INLINE enlargeFront #-}
@@ -580,6 +619,20 @@ enlargeFront v = stToPrim $ do
                    return (v', by)
   where
     by = enlarge_delta v
+
+enlargeFrontUpTo :: (PrimMonad m, MVector v a)
+                 => Int -> v (PrimState m) a -> m (v (PrimState m) a, Int)
+{-# INLINE enlargeFrontUpTo #-}
+enlargeFrontUpTo upTo v = stToPrim $ do
+  v' <- unsafeGrowFront v by
+  basicInitialize $ basicUnsafeSlice 0 by v'
+  return (v', by)
+  where
+    n     = length v
+    delta = enlarge_delta v
+    -- FIXME: elaborate dealing with overflow in size
+    by | delta + n <= upTo = delta
+       | otherwise         = upTo - n
 
 -- | Grow a vector by allocating a new mutable vector of the same size plus the
 -- the given number of elements and copying all the data over to the new vector,
@@ -1075,16 +1128,16 @@ unstablePartition f !v = from_left 0 (length v)
 unstablePartitionBundle :: (PrimMonad m, MVector v a)
         => (a -> Bool) -> Bundle u a -> m (v (PrimState m) a, v (PrimState m) a)
 {-# INLINE unstablePartitionBundle #-}
-unstablePartitionBundle f s
-  = case upperBound (Bundle.size s) of
-      Just n  -> unstablePartitionMax f s n
-      Nothing -> partitionUnknown f s
+unstablePartitionBundle f s =
+  case MBundle.size s of
+    Size lb ub | lb == ub -> unstablePartitionExact f s ub
+    _                     -> partitionUnknown f s
 
-unstablePartitionMax :: (PrimMonad m, MVector v a)
+unstablePartitionExact :: (PrimMonad m, MVector v a)
         => (a -> Bool) -> Bundle u a -> Int
         -> m (v (PrimState m) a, v (PrimState m) a)
-{-# INLINE unstablePartitionMax #-}
-unstablePartitionMax f s n
+{-# INLINE unstablePartitionExact #-}
+unstablePartitionExact f s n
   = do
       v <- checkLength Internal n $ unsafeNew n
       let {-# INLINE_INNER put #-}
@@ -1102,36 +1155,8 @@ unstablePartitionMax f s n
 partitionBundle :: (PrimMonad m, MVector v a)
         => (a -> Bool) -> Bundle u a -> m (v (PrimState m) a, v (PrimState m) a)
 {-# INLINE partitionBundle #-}
-partitionBundle f s
-  = case upperBound (Bundle.size s) of
-      Just n  -> partitionMax f s n
-      Nothing -> partitionUnknown f s
-
-partitionMax :: (PrimMonad m, MVector v a)
-  => (a -> Bool) -> Bundle u a -> Int -> m (v (PrimState m) a, v (PrimState m) a)
-{-# INLINE partitionMax #-}
-partitionMax f s n
-  = do
-      v <- checkLength Internal n $ unsafeNew n
-
-      let {-# INLINE_INNER put #-}
-          put (i,j) x
-            | f x       = do
-                            unsafeWrite v i x
-                            return (i+1,j)
-
-            | otherwise = let j' = j-1 in
-                          do
-                            unsafeWrite v j' x
-                            return (i,j')
-
-      (i,j) <- Bundle.foldM' put (0,n) s
-      check Internal "invalid indices" (i <= j)
-        $ return ()
-      let l = unsafeSlice 0 i v
-          r = unsafeSlice j (n-j) v
-      reverse r
-      return (l,r)
+-- FIXME:
+partitionBundle f s = partitionUnknown f s
 
 partitionUnknown :: (PrimMonad m, MVector v a)
         => (a -> Bool) -> Bundle u a -> m (v (PrimState m) a, v (PrimState m) a)
@@ -1145,6 +1170,7 @@ partitionUnknown f s
         $ checkSlice Internal 0 n2 (length v2')
         $ return (unsafeSlice 0 n1 v1', unsafeSlice 0 n2 v2')
   where
+    ub = upperBound $ MBundle.size s
     -- NOTE: The case distinction has to be on the outside because
     -- GHC creates a join point for the unsafeWrite even when everything
     -- is inlined. This is bad because with the join point, v isn't getting
@@ -1152,40 +1178,17 @@ partitionUnknown f s
     {-# INLINE_INNER put #-}
     put (v1, i1, v2, i2) x
       | f x       = do
-                      v1' <- unsafeAppend1 v1 i1 x
+                      v1' <- unsafeAppend1 ub v1 i1 x
                       return (v1', i1+1, v2, i2)
       | otherwise = do
-                      v2' <- unsafeAppend1 v2 i2 x
+                      v2' <- unsafeAppend1 ub v2 i2 x
                       return (v1, i1, v2', i2+1)
 
 
 partitionWithBundle :: (PrimMonad m, MVector v a, MVector v b, MVector v c)
         => (a -> Either b c) -> Bundle u a -> m (v (PrimState m) b, v (PrimState m) c)
 {-# INLINE partitionWithBundle #-}
-partitionWithBundle f s
-  = case upperBound (Bundle.size s) of
-      Just n  -> partitionWithMax f s n
-      Nothing -> partitionWithUnknown f s
-
-partitionWithMax :: (PrimMonad m, MVector v a, MVector v b, MVector v c)
-  => (a -> Either b c) -> Bundle u a -> Int -> m (v (PrimState m) b, v (PrimState m) c)
-{-# INLINE partitionWithMax #-}
-partitionWithMax f s n
-  = do
-      v1 <- unsafeNew n
-      v2 <- unsafeNew n
-      let {-# INLINE_INNER put #-}
-          put (i1, i2) x = case f x of
-            Left b -> do
-              unsafeWrite v1 i1 b
-              return (i1+1, i2)
-            Right c -> do
-              unsafeWrite v2 i2 c
-              return (i1, i2+1)
-      (n1, n2) <- Bundle.foldM' put (0, 0) s
-      checkSlice Internal 0 n1 (length v1)
-        $ checkSlice Internal 0 n2 (length v2)
-        $ return (unsafeSlice 0 n1 v1, unsafeSlice 0 n2 v2)
+partitionWithBundle f s = partitionWithUnknown f s
 
 partitionWithUnknown :: forall m v u a b c.
      (PrimMonad m, MVector v a, MVector v b, MVector v c)
@@ -1200,16 +1203,17 @@ partitionWithUnknown f s
         $ checkSlice Internal 0 n2 (length v2')
         $ return (unsafeSlice 0 n1 v1', unsafeSlice 0 n2 v2')
   where
+    ub = upperBound $ MBundle.size s
     put :: (v (PrimState m) b, Int, v (PrimState m) c, Int)
         -> a
         -> m (v (PrimState m) b, Int, v (PrimState m) c, Int)
     {-# INLINE_INNER put #-}
     put (v1, i1, v2, i2) x = case f x of
       Left b -> do
-        v1' <- unsafeAppend1 v1 i1 b
+        v1' <- unsafeAppend1 ub v1 i1 b
         return (v1', i1+1, v2, i2)
       Right c -> do
-        v2' <- unsafeAppend1 v2 i2 c
+        v2' <- unsafeAppend1 ub v2 i2 c
         return (v1, i1, v2', i2+1)
 
 -- Modifying vectors
