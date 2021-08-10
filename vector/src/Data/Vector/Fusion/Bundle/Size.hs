@@ -17,63 +17,54 @@ module Data.Vector.Fusion.Bundle.Size (
 
 import Data.Vector.Fusion.Util ( delay_inline )
 
+type SizeHint = Maybe Int
+
 -- | Hint about size of size of buffer that will be produced.
-data Size = SizeHint !(Maybe Int) !(Maybe Int)
-  -- = Unknown            -- ^ We have no knowledge about size.
-  -- | Exact !Int
-  -- | Range !Int !Int    -- ^ Stream size lie in given range
-  -- | Max   !Int         -- ^ We know only upper bound on size of stream
+data Size = Size
+  { lowerBound :: !Int
+  , upperBound :: !SizeHint
+  }
   deriving( Eq, Show )
 
 exact :: Int -> Size
-exact n = SizeHint (Just n) (Just n)
+exact n = Size n (Just n)
 
-pattern Unknown = SizeHint Nothing Nothing
+pattern Unknown = Size 0 Nothing
 
--- pattern Exact n | n == m <- SizeHint (Just n) (Just m) where
---   Exact n = SizeHint (Just n) (Just n)
 
 instance Num Size where
-  -- Exact m + Exact n = checkedAdd Exact m n
-  -- Exact m + Max   n = checkedAdd Max m n
-
-  -- Max   m + Exact n = checkedAdd Max m n
-  -- Max   m + Max   n = checkedAdd Max m n
-  _       + _       = Unknown
-  -- Exact m - Exact n = checkedSubtract Exact m n
-  -- Exact m - Max   _ = Max   m
-
-  -- Max   m - Exact n = checkedSubtract Max m n
-  -- Max   m - Max   _ = Max   m
-  -- Max   m - Unknown = Max   m
-
-  _       - _       = Unknown
-
-
-  -- fromInteger n     = Exact (fromInteger n)
+  Size lA uA + Size lB uB = Size (lA + lB) (sizeHintAdd uA uB)
+    where
+      sizeHintAdd Nothing  _        = Nothing
+      sizeHintAdd _        Nothing  = Nothing
+      sizeHintAdd (Just n) (Just m) = Just $! checkedAdd n m
+  --
+  Size lA uA - Size lB uB =
+    Size (subtractLB lA uB) (subtractUB uA lB)
+    where
+      subtractLB n Nothing              = 0
+      subtractLB n (Just m) | m >= n    = 0
+                            | otherwise = n - m
+      subtractUB Nothing  _ = Nothing
+      subtractUB (Just n) m | m >= n    = Just 0
+                            | otherwise = Just $! n - m
+  --
+  fromInteger = exact . fromInteger
 
   (*)    = error "vector: internal error * for Bundle.size isn't defined"
   abs    = error "vector: internal error abs for Bundle.size isn't defined"
   signum = error "vector: internal error signum for Bundle.size isn't defined"
 
+checkedAdd :: Int -> Int -> Int
 {-# INLINE checkedAdd #-}
-checkedAdd :: (Int -> Size) -> Int -> Int -> Size
-checkedAdd con m n
+checkedAdd m n
     -- Note: we assume m and n are >= 0.
   | r < m || r < n =
       error $ "Data.Vector.Fusion.Bundle.Size.checkedAdd: overflow: " ++ show r
-  | otherwise = con r
+  | otherwise = r
   where
     r = m + n
 
-{-# INLINE checkedSubtract #-}
-checkedSubtract :: (Int -> Size) -> Int -> Int -> Size
-checkedSubtract con m n
-  | r < 0 =
-      error $ "Data.Vector.Fusion.Bundle.Size.checkedSubtract: underflow: " ++ show r
-  | otherwise = con r
-  where
-    r = m - n
 
 -- | Subtract two sizes with clamping to 0, for drop-like things
 {-# INLINE clampedSubtract #-}
@@ -89,49 +80,39 @@ clampedSubtract _         _ = Unknown
 -- | Minimum of two size hints
 smaller :: Size -> Size -> Size
 {-# INLINE smaller #-}
--- smaller (Exact m) (Exact n) = Exact (delay_inline min m n)
--- smaller (Exact m) (Max   n) = Max   (delay_inline min m n)
--- smaller (Exact m) Unknown   = Max   m
--- smaller (Max   m) (Exact n) = Max   (delay_inline min m n)
--- smaller (Max   m) (Max   n) = Max   (delay_inline min m n)
--- smaller (Max   m) Unknown   = Max   m
--- smaller Unknown   (Exact n) = Max   n
--- smaller Unknown   (Max   n) = Max   n
-smaller Unknown   Unknown   = Unknown
+smaller (Size lA uA) (Size lB uB)
+  = Size (min lA lB) (smallerU uA uB)
+  where
+    smallerU Nothing  n        = n
+    smallerU n        Nothing  = n
+    smallerU (Just n) (Just m) = Just $! min n m
+
+-- | Maximum of two size hints
+larger :: Size -> Size -> Size
+{-# INLINE larger #-}
+larger (Size lA uA) (Size lB uB)
+  = Size (max lA lB) (largerU uA uB)
+  where
+    largerU Nothing  n        = Nothing
+    largerU n        Nothing  = Nothing
+    largerU (Just n) (Just m) = Just $! max n m
+
+
 
 -- | Select a safe smaller than known size.
 smallerThan :: Int -> Size -> Size
 {-# INLINE smallerThan #-}
+-- FIXME: ???
+--
 -- smallerThan m (Exact n) = Exact (delay_inline min m n)
 -- smallerThan m (Max   n) = Max   (delay_inline min m n)
 smallerThan _ Unknown   = Unknown
 
 
--- | Maximum of two size hints
-larger :: Size -> Size -> Size
-{-# INLINE larger #-}
--- larger (Exact m) (Exact n)             = Exact (delay_inline max m n)
--- larger (Exact m) (Max   n) | m >= n    = Exact m
---                            | otherwise = Max   n
--- larger (Max   m) (Exact n) | n >= m    = Exact n
---                            | otherwise = Max   m
--- larger (Max   m) (Max   n)             = Max   (delay_inline max m n)
-larger _         _                     = Unknown
 
 -- | Convert a size hint to an upper bound
 toMax :: Size -> Size
 -- toMax (Exact n) = Max n
 -- toMax (Max   n) = Max n
 toMax Unknown   = Unknown
-
--- | Compute the minimum size from a size hint
-lowerBound :: Size -> Int
--- lowerBound (Exact n) = n
-lowerBound _         = 0
-
--- | Compute the maximum size from a size hint if possible
-upperBound :: Size -> Maybe Int
--- upperBound (Exact n) = Just n
--- upperBound (Max   n) = Just n
-upperBound Unknown   = Nothing
 
