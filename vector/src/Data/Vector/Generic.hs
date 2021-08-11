@@ -1371,14 +1371,14 @@ unzip6 xs = (map (\(a, _, _, _, _, _) -> a) xs,
 -- | /O(n)/ Drop all elements that do not satisfy the predicate.
 filter :: Vector v a => (a -> Bool) -> v a -> v a
 {-# INLINE filter #-}
-filter f = unstream . inplace (S.filter f) toMax . stream
+filter f = unstream . inplace (S.filter f) zeroLowerBound . stream
 
 -- | /O(n)/ Drop all elements that do not satisfy the predicate which is applied to
 -- the values and their indices.
 ifilter :: Vector v a => (Int -> a -> Bool) -> v a -> v a
 {-# INLINE ifilter #-}
 ifilter f = unstream
-          . inplace (S.map snd . S.filter (uncurry f) . S.indexed) toMax
+          . inplace (S.map snd . S.filter (uncurry f) . S.indexed) zeroLowerBound
           . stream
 
 -- | /O(n)/ Drop repeated adjacent elements. The first element in each group is returned.
@@ -1393,18 +1393,18 @@ ifilter f = unstream
 -- [Arg 1 'a']
 uniq :: (Vector v a, Eq a) => v a -> v a
 {-# INLINE uniq #-}
-uniq = unstream . inplace S.uniq toMax . stream
+uniq = unstream . inplace S.uniq zeroLowerBound . stream
 
 -- | /O(n)/ Map the values and collect the 'Just' results.
 mapMaybe :: (Vector v a, Vector v b) => (a -> Maybe b) -> v a -> v b
 {-# INLINE mapMaybe #-}
-mapMaybe f = unstream . inplace (S.mapMaybe f) toMax . stream
+mapMaybe f = unstream . inplace (S.mapMaybe f) zeroLowerBound . stream
 
 -- | /O(n)/ Map the indices/values and collect the 'Just' results.
 imapMaybe :: (Vector v a, Vector v b) => (Int -> a -> Maybe b) -> v a -> v b
 {-# INLINE imapMaybe #-}
 imapMaybe f = unstream
-          . inplace (S.mapMaybe (uncurry f) . S.indexed) toMax
+          . inplace (S.mapMaybe (uncurry f) . S.indexed) zeroLowerBound
           . stream
 
 
@@ -1593,7 +1593,7 @@ findIndexR f v = fmap (length v - 1 -) . Bundle.findIndex f $ streamR v
 findIndices :: (Vector v a, Vector v Int) => (a -> Bool) -> v a -> v Int
 {-# INLINE findIndices #-}
 findIndices f = unstream
-              . inplace (S.map fst . S.filter (f . snd) . S.indexed) toMax
+              . inplace (S.map fst . S.filter (f . snd) . S.indexed) zeroLowerBound
               . stream
 
 -- | /O(n)/ Yield 'Just' the index of the first occurence of the given element or
@@ -2429,7 +2429,7 @@ unstream s = new (New.unstream s)
 -- | /O(1)/ Convert a vector to a 'Bundle', proceeding from right to left.
 streamR :: Vector v a => v a -> Bundle u a
 {-# INLINE_FUSED streamR #-}
-streamR v = v `seq` n `seq` (Bundle.unfoldr get n `Bundle.sized` Exact n)
+streamR v = v `seq` n `seq` (Bundle.unfoldr get n `Bundle.sized` exact n)
   where
     n = length v
 

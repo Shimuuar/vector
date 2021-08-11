@@ -12,7 +12,12 @@
 --
 
 module Data.Vector.Fusion.Bundle.Size (
-  Size(..), clampedSubtract, smaller, smallerThan, larger, toMax, upperBound, lowerBound
+  Size(..), exact, unknown, maxSize,
+
+  {-clampedSubtract,-} smaller, {-smallerThan,-} larger
+  -- , toMax, upperBound, lowerBound
+  , zeroLowerBound
+  , setUpperBound
 ) where
 
 import Data.Vector.Fusion.Util ( delay_inline )
@@ -29,8 +34,11 @@ data Size = Size
 exact :: Int -> Size
 exact n = Size n (Just n)
 
-pattern Unknown = Size 0 Nothing
+unknown :: Size
+unknown = Size 0 Nothing
 
+maxSize :: Int -> Size
+maxSize n = Size 0 (Just n)
 
 instance Num Size where
   Size lA uA + Size lB uB = Size (lA + lB) (sizeHintAdd uA uB)
@@ -65,18 +73,6 @@ checkedAdd m n
   where
     r = m + n
 
-
--- | Subtract two sizes with clamping to 0, for drop-like things
-{-# INLINE clampedSubtract #-}
-clampedSubtract :: Size -> Size -> Size
--- clampedSubtract (Exact m) (Exact n) = Exact (max 0 (m - n))
--- clampedSubtract (Max   m) (Exact n)
---   | m <= n = Exact 0
---   | otherwise = Max (m - n)
--- clampedSubtract (Exact m) (Max   _) = Max m
--- clampedSubtract (Max   m) (Max   _) = Max m
-clampedSubtract _         _ = Unknown
-
 -- | Minimum of two size hints
 smaller :: Size -> Size -> Size
 {-# INLINE smaller #-}
@@ -93,26 +89,15 @@ larger :: Size -> Size -> Size
 larger (Size lA uA) (Size lB uB)
   = Size (max lA lB) (largerU uA uB)
   where
-    largerU Nothing  n        = Nothing
-    largerU n        Nothing  = Nothing
+    largerU Nothing  _        = Nothing
+    largerU _        Nothing  = Nothing
     largerU (Just n) (Just m) = Just $! max n m
 
 
+-- | Set lower bound of size hint to zero
+zeroLowerBound :: Size -> Size
+zeroLowerBound (Size _ ub) = Size 0 ub
 
--- | Select a safe smaller than known size.
-smallerThan :: Int -> Size -> Size
-{-# INLINE smallerThan #-}
--- FIXME: ???
---
--- smallerThan m (Exact n) = Exact (delay_inline min m n)
--- smallerThan m (Max   n) = Max   (delay_inline min m n)
-smallerThan _ Unknown   = Unknown
-
-
-
--- | Convert a size hint to an upper bound
-toMax :: Size -> Size
--- toMax (Exact n) = Max n
--- toMax (Max   n) = Max n
-toMax Unknown   = Unknown
-
+setUpperBound :: Int -> Size -> Size
+setUpperBound n (Size lb Nothing)   = Size (min lb n) (Just n)
+setUpperBound n (Size lb (Just ub)) = Size (min lb n) (Just $! min n ub)
