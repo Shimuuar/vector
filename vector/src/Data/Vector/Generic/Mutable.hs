@@ -73,6 +73,7 @@ module Data.Vector.Generic.Mutable (
   PrimMonad, PrimState, RealWorld
 ) where
 
+import           Control.Monad.ST
 import           Data.Vector.Generic.Mutable.Base
 import qualified Data.Vector.Generic.Base as V
 
@@ -85,7 +86,7 @@ import           Data.Vector.Fusion.Bundle.Size
 import           Data.Vector.Fusion.Util        ( delay_inline )
 import           Data.Vector.Internal.Check
 
-import Control.Monad.Primitive ( PrimMonad(..), RealWorld, stToPrim )
+import Control.Monad.Primitive ( PrimMonad(..), stToPrim )
 
 import Prelude hiding ( length, null, replicate, reverse, map, read,
                         take, drop, splitAt, init, tail, mapM_, foldr, foldl )
@@ -96,8 +97,7 @@ import Prelude hiding ( length, null, replicate, reverse, map, read,
 -- Internal functions
 -- ------------------
 
-unsafeAppend1 :: (PrimMonad m, MVector v a)
-        => v (PrimState m) a -> Int -> a -> m (v (PrimState m) a)
+unsafeAppend1 :: (MVector v a) => v s a -> Int -> a -> ST s (v s a)
 {-# INLINE_INNER unsafeAppend1 #-}
     -- NOTE: The case distinction has to be on the outside because
     -- GHC creates a join point for the unsafeWrite even when everything
@@ -112,8 +112,7 @@ unsafeAppend1 v i x
                      checkIndex Internal i (length v') $ unsafeWrite v' i x
                      return v'
 
-unsafePrepend1 :: (PrimMonad m, MVector v a)
-        => v (PrimState m) a -> Int -> a -> m (v (PrimState m) a, Int)
+unsafePrepend1 :: (MVector v a) => v s a -> Int -> a -> ST s (v s a, Int)
 {-# INLINE_INNER unsafePrepend1 #-}
 unsafePrepend1 v i x
   | i /= 0    = do
@@ -233,9 +232,8 @@ munstreamUnknown s
              $ unsafeSlice 0 n v'
   where
     {-# INLINE_INNER put #-}
-    put (v,i) x = do
-                    v' <- unsafeAppend1 v i x
-                    return (v',i+1)
+    put (v,i) x = stToPrim $ do v' <- unsafeAppend1 v i x
+                                return (v',i+1)
 
 
 -- | Create a new mutable vector and fill it with elements from the 'Bundle'.
@@ -340,7 +338,7 @@ munstreamRUnknown s
              $ unsafeSlice i (n-i) v'
   where
     {-# INLINE_INNER put #-}
-    put (v,i) x = unsafePrepend1 v i x
+    put (v,i) x = stToPrim $ unsafePrepend1 v i x
 
 -- Length
 -- ------
@@ -559,10 +557,9 @@ enlarge_delta :: MVector v a => v s a -> Int
 enlarge_delta v = max (length v) 1
 
 -- | Grow a vector logarithmically.
-enlarge :: (PrimMonad m, MVector v a)
-        => v (PrimState m) a -> m (v (PrimState m) a)
+enlarge :: (MVector v a) => v s a -> ST s (v s a)
 {-# INLINE enlarge #-}
-enlarge v = stToPrim $ do
+enlarge v = do
   vnew <- unsafeGrow v by
   basicInitialize $ basicUnsafeSlice (length v) by vnew
   return vnew
@@ -1078,8 +1075,7 @@ partitionBundle f s
 partitionMax :: (PrimMonad m, MVector v a)
   => (a -> Bool) -> Bundle u a -> Int -> m (v (PrimState m) a, v (PrimState m) a)
 {-# INLINE partitionMax #-}
-partitionMax f s n
-  = do
+partitionMax f s n = stToPrim $ do
       v <- checkLength Internal n $ unsafeNew n
 
       let {-# INLINE_INNER put #-}
@@ -1104,8 +1100,7 @@ partitionMax f s n
 partitionUnknown :: (PrimMonad m, MVector v a)
         => (a -> Bool) -> Bundle u a -> m (v (PrimState m) a, v (PrimState m) a)
 {-# INLINE partitionUnknown #-}
-partitionUnknown f s
-  = do
+partitionUnknown f s = stToPrim $ do
       v1 <- unsafeNew 0
       v2 <- unsafeNew 0
       (v1', n1, v2', n2) <- Bundle.foldM' put (v1, 0, v2, 0) s
@@ -1174,10 +1169,10 @@ partitionWithUnknown f s
     {-# INLINE_INNER put #-}
     put (v1, i1, v2, i2) x = case f x of
       Left b -> do
-        v1' <- unsafeAppend1 v1 i1 b
+        v1' <- stToPrim $ unsafeAppend1 v1 i1 b
         return (v1', i1+1, v2, i2)
       Right c -> do
-        v2' <- unsafeAppend1 v2 i2 c
+        v2' <- stToPrim $ unsafeAppend1 v2 i2 c
         return (v1, i1, v2', i2+1)
 
 -- Modifying vectors
