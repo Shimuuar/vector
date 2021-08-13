@@ -92,7 +92,6 @@ import Prelude hiding ( length, null, replicate, reverse, map, read,
 
 #include "vector.h"
 
-
 -- ------------------
 -- Internal functions
 -- ------------------
