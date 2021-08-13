@@ -206,37 +206,35 @@ unstream s = munstream (Bundle.lift s)
 munstream :: (PrimMonad m, MVector v a)
           => MBundle m u a -> m (v (PrimState m) a)
 {-# INLINE_FUSED munstream #-}
-munstream s = case upperBound (MBundle.size s) of
-               Just n  -> munstreamMax     s n
-               Nothing -> munstreamUnknown s
+munstream s =
+  case MBundle.size s of
+    Size lb (Just ub) | lb == ub -> munstreamExact   s lb
+    sz                           -> munstreamUnknown s sz
 
-munstreamMax :: (PrimMonad m, MVector v a)
-             => MBundle m u a -> Int -> m (v (PrimState m) a)
-{-# INLINE munstreamMax #-}
-munstreamMax s n
-  = do
-      v <- checkLength Internal n $ unsafeNew n
-      let put i x = do
-                       checkIndex Internal i n $ unsafeWrite v i x
-                       return (i+1)
-      n' <- MBundle.foldM' put 0 s
-      return $ checkSlice Internal 0 n' n
-             $ unsafeSlice 0 n' v
+munstreamExact
+  :: (PrimMonad m, MVector v a)
+  => MBundle m u a -> Int -> m (v (PrimState m) a)
+{-# INLINE munstreamExact #-}
+munstreamExact s n = do
+  v <- checkLength Internal n $ unsafeNew n
+  let put i x = do checkIndex Internal i n $ unsafeWrite v i x
+                   return (i+1)
+  n' <- MBundle.foldM' put 0 s
+  return $ checkSlice Internal 0 n' n
+         $ unsafeSlice 0 n' v
 
 munstreamUnknown :: (PrimMonad m, MVector v a)
-                 => MBundle m u a -> m (v (PrimState m) a)
+                 => MBundle m u a -> Size -> m (v (PrimState m) a)
 {-# INLINE munstreamUnknown #-}
-munstreamUnknown s
-  = do
-      v <- unsafeNew 0
-      (v', n) <- MBundle.foldM put (v, 0) s
-      return $ checkSlice Internal 0 n (length v')
-             $ unsafeSlice 0 n v'
+munstreamUnknown s (Size lb ub) = do
+  v <- unsafeNew 0
+  (v', n) <- MBundle.foldM put (v, 0) s
+  return $ checkSlice Internal 0 n (length v')
+         $ unsafeSlice 0 n v'
   where
     {-# INLINE_INNER put #-}
-    put (v,i) x = do
-                    v' <- unsafeAppend1 v i x
-                    return (v',i+1)
+    put (v,i) x = do v' <- unsafeAppend1 v i x
+                     return (v',i+1)
 
 
 -- | Create a new mutable vector and fill it with elements from the 'Bundle'.
