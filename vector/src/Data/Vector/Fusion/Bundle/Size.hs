@@ -31,26 +31,28 @@ data Size = Size
   }
   deriving( Eq, Show )
 
+-- | Hint for size that is known exactly
 exact :: Int -> Size
 exact n = Size n (Just n)
 
+-- | Unknown size
 unknown :: Size
 unknown = Size 0 Nothing
 
+-- | Maximum bound for size is known
 maxSize :: Int -> Size
 maxSize n = Size 0 (Just n)
 
 instance Num Size where
-  Size lA uA + Size lB uB = Size (lA + lB) (sizeHintAdd uA uB)
-    where
-      sizeHintAdd Nothing  _        = Nothing
-      sizeHintAdd _        Nothing  = Nothing
-      sizeHintAdd (Just n) (Just m) = Just $! checkedAdd n m
+  Size lA uA + Size lB uB = Size (checkedAdd lA lB) $ do
+    a <- uA
+    b <- uB
+    saturatedAdd a b
   --
   Size lA uA - Size lB uB =
     Size (subtractLB lA uB) (subtractUB uA lB)
     where
-      subtractLB n Nothing              = 0
+      subtractLB _ Nothing              = 0
       subtractLB n (Just m) | m >= n    = 0
                             | otherwise = n - m
       subtractUB Nothing  _ = Nothing
@@ -70,6 +72,15 @@ checkedAdd m n
   | r < m || r < n =
       error $ "Data.Vector.Fusion.Bundle.Size.checkedAdd: overflow: " ++ show r
   | otherwise = r
+  where
+    r = m + n
+
+saturatedAdd :: Int -> Int -> Maybe Int
+{-# INLINE saturatedAdd #-}
+saturatedAdd m n
+    -- Note: we assume m and n are >= 0.
+  | r < m || r < n = Nothing
+  | otherwise      = Just r
   where
     r = m + n
 
@@ -96,8 +107,11 @@ larger (Size lA uA) (Size lB uB)
 
 -- | Set lower bound of size hint to zero
 zeroLowerBound :: Size -> Size
+{-# INLINE zeroLowerBound #-}
 zeroLowerBound (Size _ ub) = Size 0 ub
 
+-- | Set upper bound of size to given value
 setUpperBound :: Int -> Size -> Size
+{-# INLINE setUpperBound #-}
 setUpperBound n (Size lb Nothing)   = Size (min lb n) (Just n)
 setUpperBound n (Size lb (Just ub)) = Size (min lb n) (Just $! min n ub)
