@@ -196,7 +196,7 @@ unstream :: (PrimMonad m, MVector v a)
          => Bundle u a -> m (v (PrimState m) a)
 -- NOTE: replace INLINE_FUSED by INLINE? (also in unstreamR)
 {-# INLINE_FUSED unstream #-}
-unstream s = munstream (Bundle.lift s)
+unstream s = stToPrim $ munstream (Bundle.lift s)
 
 -- | Create a new mutable vector and fill it with elements from the monadic
 -- stream. The vector will grow exponentially if the maximum size of the stream
@@ -243,7 +243,7 @@ vunstream :: (PrimMonad m, V.Vector v a)
          => Bundle v a -> m (V.Mutable v (PrimState m) a)
 -- NOTE: replace INLINE_FUSED by INLINE? (also in unstreamR)
 {-# INLINE_FUSED vunstream #-}
-vunstream s = vmunstream (Bundle.lift s)
+vunstream s = stToPrim $ vmunstream (Bundle.lift s)
 
 -- | Create a new mutable vector and fill it with elements from the monadic
 -- stream. The vector will grow exponentially if the maximum size of the stream
