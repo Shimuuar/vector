@@ -73,6 +73,7 @@ module Data.Vector.Generic.Mutable (
   PrimMonad, PrimState, RealWorld
 ) where
 
+import Data.Maybe (fromMaybe)
 import           Data.Vector.Generic.Mutable.Base
 import qualified Data.Vector.Generic.Base as V
 
@@ -110,6 +111,22 @@ unsafeAppend1 v i x
                      return v
   | otherwise    = do
                      v' <- enlarge v
+                     checkIndex Internal i (length v') $ unsafeWrite v' i x
+                     return v'
+
+unsafeAppend1UpTo :: (PrimMonad m, MVector v a)
+        => Int -> v (PrimState m) a -> Int -> a -> m (v (PrimState m) a)
+{-# INLINE_INNER unsafeAppend1UpTo #-}
+    -- NOTE: The case distinction has to be on the outside because
+    -- GHC creates a join point for the unsafeWrite even when everything
+    -- is inlined. This is bad because with the join point, v isn't getting
+    -- unboxed.
+unsafeAppend1UpTo upTo v i x
+  | i < length v = do
+                     unsafeWrite v i x
+                     return v
+  | otherwise    = do
+                     v' <- enlargeUpTo upTo v
                      checkIndex Internal i (length v') $ unsafeWrite v' i x
                      return v'
 
@@ -227,13 +244,13 @@ munstreamUnknown :: (PrimMonad m, MVector v a)
                  => MBundle m u a -> Size -> m (v (PrimState m) a)
 {-# INLINE munstreamUnknown #-}
 munstreamUnknown s (Size lb ub) = do
-  v <- unsafeNew 0
+  v <- unsafeNew lb
   (v', n) <- MBundle.foldM put (v, 0) s
   return $ checkSlice Internal 0 n (length v')
          $ unsafeSlice 0 n v'
   where
     {-# INLINE_INNER put #-}
-    put (v,i) x = do v' <- unsafeAppend1 v i x
+    put (v,i) x = do v' <- unsafeAppend1UpTo (fromMaybe maxBound ub) v i x
                      return (v',i+1)
 
 
@@ -567,6 +584,20 @@ enlarge v = stToPrim $ do
   return vnew
   where
     by = enlarge_delta v
+
+-- | Grow a vector logarithmically.
+enlargeUpTo :: (PrimMonad m, MVector v a)
+            => Int -> v (PrimState m) a -> m (v (PrimState m) a)
+{-# INLINE enlargeUpTo #-}
+enlargeUpTo upTo v = stToPrim $ do
+  vnew <- unsafeGrow v by
+  basicInitialize $ basicUnsafeSlice n by vnew
+  return vnew
+  where
+    n     = length v
+    delta = enlarge_delta v
+    by | delta + n <= upTo = delta
+       | otherwise         = upTo - n
 
 enlargeFront :: (PrimMonad m, MVector v a)
              => v (PrimState m) a -> m (v (PrimState m) a, Int)
