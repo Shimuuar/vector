@@ -15,7 +15,7 @@
 --
 
 module Data.Vector.Fusion.Bundle.Size (
-  Size(..), exact, unknown, maxSize,
+  Size(..), lowerBound, upperBound, exact, unknown, maxSize,
 
   {-clampedSubtract,-} smaller, {-smallerThan,-} larger
   -- , toMax, upperBound, lowerBound
@@ -35,17 +35,26 @@ import Data.Vector.Fusion.Util ( delay_inline )
 --   Note that it's possible to create vectors with length @maxBound@
 --   since unboxed vectors for () use O(1) memory. So we won't run
 --   out of memory first.
-data Size = Size
-  { lowerBound :: !Int
-    -- ^ Lower bound on size of vector.
-  , upperBound :: !Int
-    -- ^ Upper bound on size of vector.
-  }
-  deriving( Eq, Show )
+data Size = Size  !Int !Int
+          | Exact !Int
+          deriving( Eq, Show )
+
+-- | Lower bound on size of vector.
+lowerBound :: Size -> Int
+{-# INLINE lowerBound #-}
+lowerBound (Size  n _) = n
+lowerBound (Exact n)   = n
+
+-- ^ Upper bound on size of vector.
+upperBound :: Size -> Int
+{-# INLINE upperBound #-}
+upperBound (Size  _ n) = n
+upperBound (Exact n)   = n
+
 
 -- | Hint for size that is known exactly
 exact :: Int -> Size
-exact n = Size n n
+exact = Exact
 
 -- | Unknown size
 unknown :: Size
@@ -56,13 +65,19 @@ maxSize :: Int -> Size
 maxSize n = Size 0 n
 
 instance Num Size where
+  Exact nA   + Exact nB   = Exact (checkedAdd nA nB)
+  Exact nA   + Size lB uB = Size (checkedAdd nA lB) (saturatedAdd nA uB)
+  Size lA uA + Exact nB   = Size (checkedAdd lA nB) (saturatedAdd uA nB)
   Size lA uA + Size lB uB = Size (checkedAdd lA lB) (saturatedAdd uA uB)
   --
-  Size lA uA - Size lB _
+  Exact nA   - Exact nB   = Exact (saturatedSub nA nB)
+  Exact nA   - Size lB uB = Size  (saturatedSub nA uB) (saturatedSub nA lB)
+  Size lA uA - sz
     | uA == maxBound = Size lR maxBound
-    | otherwise      = Size lR (saturatedSub uA lB)
+    | otherwise      = Size lR uR
     where
-      lR = saturatedSub lA lB
+      lR = saturatedSub lA (upperBound sz)
+      uR = saturatedSub uA (lowerBound sz)
   --
   fromInteger = exact . fromInteger
 
@@ -98,24 +113,28 @@ checkedAdd m n
 -- | Minimum of two size hints
 smaller :: Size -> Size -> Size
 {-# INLINE smaller #-}
-smaller (Size lA uA) (Size lB uB)
-  = Size (min lA lB) (min uA uB)
+smaller (Exact nA) (Exact nB) = Exact (min nA nB)
+smaller szA szB = 
+  Size (lowerBound szA `min` lowerBound szB) (upperBound szA `min` upperBound szB)
 
 
 -- | Maximum of two size hints
 larger :: Size -> Size -> Size
 {-# INLINE larger #-}
-larger (Size lA uA) (Size lB uB)
-  = Size (max lA lB) (max uA uB)
+larger (Exact nA) (Exact nB) = Exact (max nA nB)
+larger szA szB =
+  Size (lowerBound szA `max` lowerBound szB) (upperBound szA `max` upperBound szB)
+
 
 
 
 -- | Set lower bound of size hint to zero
 zeroLowerBound :: Size -> Size
 {-# INLINE zeroLowerBound #-}
-zeroLowerBound (Size _ ub) = Size 0 ub
+zeroLowerBound sz = Size 0 (upperBound sz)
 
 -- | Set upper bound of size to given value
 setUpperBound :: Int -> Size -> Size
 {-# INLINE setUpperBound #-}
+setUpperBound n (Exact k) = Exact (min n k)
 setUpperBound n (Size lb ub) = Size (min n lb) (min n ub)
