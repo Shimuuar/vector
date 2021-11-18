@@ -214,8 +214,8 @@ munstream :: (PrimMonad m, MVector v a)
 {-# INLINE_FUSED munstream #-}
 munstream s =
   case MBundle.size s of
-    Size lb ub | lb == ub -> munstreamExact   s lb
-    _                     -> munstreamUnknown s
+    Exact n -> munstreamExact s n
+    Size{}  -> munstreamUnknown s
 
 munstreamExact
   :: (PrimMonad m, MVector v a)
@@ -238,7 +238,8 @@ munstreamUnknown s = do
   return $ checkSlice Internal 0 n (length v')
          $ unsafeSlice 0 n v'
   where
-    Size lb ub = MBundle.size s
+    lb = lowerBound $ MBundle.size s
+    ub = upperBound $ MBundle.size s
     {-# INLINE_INNER put #-}
     put (v,i) x = do v' <- unsafeAppend1 ub v i x
                      return (v',i+1)
@@ -261,8 +262,8 @@ vmunstream :: (PrimMonad m, V.Vector v a)
 {-# INLINE_FUSED vmunstream #-}
 vmunstream s =
   case MBundle.size s of
-    Size ub lb | lb == ub -> vmunstreamExact   s ub
-    _                     -> vmunstreamUnknown s
+    Exact n -> vmunstreamExact   s n
+    Size{}  -> vmunstreamUnknown s
 
 vmunstreamExact :: (PrimMonad m, V.Vector v a)
               => MBundle m v a -> Int -> m (V.Mutable v (PrimState m) a)
@@ -320,8 +321,8 @@ munstreamR :: (PrimMonad m, MVector v a)
 {-# INLINE_FUSED munstreamR #-}
 munstreamR s =
   case MBundle.size s of
-    Size lb ub | lb == ub -> munstreamRExact   s lb
-    _                     -> munstreamRUnknown s
+    Exact n -> munstreamRExact s n
+    _       -> munstreamRUnknown s
 
 munstreamRExact :: (PrimMonad m, MVector v a)
               => MBundle m u a -> Int -> m (v (PrimState m) a)
@@ -1130,8 +1131,8 @@ unstablePartitionBundle :: (PrimMonad m, MVector v a)
 {-# INLINE unstablePartitionBundle #-}
 unstablePartitionBundle f s =
   case MBundle.size s of
-    Size lb ub | lb == ub -> unstablePartitionExact f s ub
-    _                     -> partitionUnknown f s
+    Exact n -> unstablePartitionExact f s n
+    Size{}  -> partitionUnknown f s
 
 unstablePartitionExact :: (PrimMonad m, MVector v a)
         => (a -> Bool) -> Bundle u a -> Int
