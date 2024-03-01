@@ -27,7 +27,7 @@ module Tests.Vector.Property
 
 import Boilerplater
 import Utilities as Util
-import Test.Vector.Reference as Util hiding (limitUnfolds)
+import Test.Vector.Reference as Util
 
 import Control.Monad
 import Control.Monad.ST
@@ -447,18 +447,6 @@ testPolymorphicFunctions _ = $(testProperties [
     --prop_mapAccumR  = eq3
     --    (V.mapAccumR :: (X -> W -> (X,W)) -> X -> B   -> (X, B))
     --    (  mapAccumR :: (X -> W -> (X,W)) -> X -> [W] -> (X, [W]))
-
-    -- Because the vectors are strict, we need to be totally sure that the unfold eventually terminates. This
-    -- is achieved by injecting our own bit of state into the unfold - the maximum number of unfolds allowed.
-    limitUnfolds f (theirs, ours)
-        | ours > 0
-        , Just (out, theirs') <- f theirs = Just (out, (theirs', ours - 1))
-        | otherwise                       = Nothing
-    limitUnfoldsM f (theirs, ours)
-        | ours >  0 = do r <- f theirs
-                         return $ (\(a,b) -> (a,(b,ours - 1))) `fmap` r
-        | otherwise = return Nothing
-
 
     prop_unfoldr :: P (Int -> (Int -> Maybe (a,Int)) -> Int -> v a)
          = (\n f a -> V.unfoldr (limitUnfolds f) (a, n))

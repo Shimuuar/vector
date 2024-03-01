@@ -4,7 +4,7 @@ module Tests.Bundle ( tests ) where
 
 import Boilerplater
 import Utilities
-import Test.Vector.Reference hiding (limitUnfolds)
+import Test.Vector.Reference
 
 import qualified Data.Vector.Fusion.Bundle as S
 
@@ -142,9 +142,6 @@ testPolymorphicFunctions _ = $(testProperties [
       where
         prop :: P ((a -> S.Bundle v a) -> S.Bundle v a -> S.Bundle v a) = S.concatMap `eq` concatMap
 
-    limitUnfolds f (theirs, ours) | ours >= 0
-                                  , Just (out, theirs') <- f theirs = Just (out, (theirs', ours - 1))
-                                  | otherwise                       = Nothing
     prop_unfoldr :: P (Int -> (Int -> Maybe (a,Int)) -> Int -> S.Bundle v a)
          = (\n f a -> S.unfoldr (limitUnfolds f) (a, n))
            `eq` (\n f a -> unfoldr (limitUnfolds f) (a, n))
