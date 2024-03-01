@@ -190,6 +190,7 @@ library testlib
       , QuickCheck >= 2.9 && < 2.15
   exposed-modules:
         Test.Vector.Orphanage
+        Test.Vector.Reference
   default-extensions:
         FlexibleContexts
         FlexibleInstances

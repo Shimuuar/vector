@@ -3,7 +3,8 @@
 module Tests.Bundle ( tests ) where
 
 import Boilerplater
-import Utilities hiding (limitUnfolds)
+import Utilities
+import Test.Vector.Reference hiding (limitUnfolds)
 
 import qualified Data.Vector.Fusion.Bundle as S
 

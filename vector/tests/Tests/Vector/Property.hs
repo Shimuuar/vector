@@ -26,7 +26,8 @@ module Tests.Vector.Property
   ) where
 
 import Boilerplater
-import Utilities as Util hiding (limitUnfolds)
+import Utilities as Util
+import Test.Vector.Reference as Util hiding (limitUnfolds)
 
 import Control.Monad
 import Control.Monad.ST
