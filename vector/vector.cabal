@@ -176,6 +176,27 @@ Library
   if flag(InternalChecks)
     cpp-options: -DVECTOR_INTERNAL_CHECKS
 
+library testlib
+  -- FIXME: import has no effect! Bug in cabal?
+  -- import:           flag-Wall
+  ghc-options:      -Wall
+  visibility:       public
+  ghc-options:      -O2
+  hs-source-dirs:   testlib
+  Default-Language: Haskell2010
+  build-depends:
+        base
+      , vector
+      , QuickCheck >= 2.9 && < 2.15
+  exposed-modules:
+        Test.Vector.Orphanage
+  default-extensions:
+        FlexibleContexts
+        FlexibleInstances
+        MultiParamTypeClasses
+        PatternGuards
+        ScopedTypeVariables
+        TypeFamilies
 
 -- We want to build test suite in two variants. One built with -O0
 -- and another with -O2 in order to catch bugs caused by invalid
@@ -188,6 +209,7 @@ common tests-common
                , template-haskell
                , base-orphans >= 0.6
                , vector
+               , vector:testlib
                , primitive
                , random
                , QuickCheck >= 2.9 && < 2.15

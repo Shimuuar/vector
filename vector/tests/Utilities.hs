@@ -23,46 +23,8 @@ import Control.Monad.Trans.Writer
 import Data.Functor.Identity
 import Data.List ( sortBy )
 import Data.Maybe (catMaybes)
+import Test.Vector.Orphanage ()
 
-instance Show a => Show (S.Bundle v a) where
-    show s = "Data.Vector.Fusion.Bundle.fromList " ++ show (S.toList s)
-
-
-instance Arbitrary a => Arbitrary (DV.Vector a) where
-    arbitrary = fmap DV.fromList arbitrary
-
-instance CoArbitrary a => CoArbitrary (DV.Vector a) where
-    coarbitrary = coarbitrary . DV.toList
-
-instance (Arbitrary a, DVP.Prim a) => Arbitrary (DVP.Vector a) where
-    arbitrary = fmap DVP.fromList arbitrary
-
-instance (CoArbitrary a, DVP.Prim a) => CoArbitrary (DVP.Vector a) where
-    coarbitrary = coarbitrary . DVP.toList
-
-instance (Arbitrary a, DVS.Storable a) => Arbitrary (DVS.Vector a) where
-    arbitrary = fmap DVS.fromList arbitrary
-
-instance (CoArbitrary a, DVS.Storable a) => CoArbitrary (DVS.Vector a) where
-    coarbitrary = coarbitrary . DVS.toList
-
-instance (Arbitrary a) => Arbitrary (DVV.Vector a) where
-    arbitrary = fmap DVV.fromList arbitrary
-
-instance (CoArbitrary a) => CoArbitrary (DVV.Vector a) where
-    coarbitrary = coarbitrary . DVV.toList
-
-instance (Arbitrary a, DVU.Unbox a) => Arbitrary (DVU.Vector a) where
-    arbitrary = fmap DVU.fromList arbitrary
-
-instance (CoArbitrary a, DVU.Unbox a) => CoArbitrary (DVU.Vector a) where
-    coarbitrary = coarbitrary . DVU.toList
-
-instance Arbitrary a => Arbitrary (S.Bundle v a) where
-    arbitrary = fmap S.fromList arbitrary
-
-instance CoArbitrary a => CoArbitrary (S.Bundle v a) where
-    coarbitrary = coarbitrary . S.toList
 
 instance (Arbitrary a, Arbitrary b) => Arbitrary (Writer a b) where
     arbitrary = do b <- arbitrary
