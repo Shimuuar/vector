@@ -191,6 +191,7 @@ library testlib
   exposed-modules:
         Test.Vector.Orphanage
         Test.Vector.Reference
+        Test.Vector.TestData
   default-extensions:
         FlexibleContexts
         FlexibleInstances
@@ -198,6 +199,7 @@ library testlib
         PatternGuards
         ScopedTypeVariables
         TypeFamilies
+        TypeOperators
 
 -- We want to build test suite in two variants. One built with -O0
 -- and another with -O2 in order to catch bugs caused by invalid

@@ -12,6 +12,7 @@ import Test.QuickCheck
 
 import Test.Tasty
 import Test.Tasty.QuickCheck hiding (testProperties)
+import Test.Vector.TestData
 
 import Text.Show.Functions ()
 import Data.List           (foldl', foldl1', unfoldr, find, findIndex)

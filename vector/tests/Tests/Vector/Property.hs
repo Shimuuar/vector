@@ -28,6 +28,7 @@ module Tests.Vector.Property
 import Boilerplater
 import Utilities as Util
 import Test.Vector.Reference as Util
+import Test.Vector.TestData
 
 import Control.Monad
 import Control.Monad.ST
