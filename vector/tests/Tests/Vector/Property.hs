@@ -26,7 +26,6 @@ module Tests.Vector.Property
   ) where
 
 import Boilerplater
-import Utilities as Util
 import Test.Vector.Reference as Util
 import Test.Vector.TestData
 
@@ -53,7 +52,6 @@ import qualified Control.Applicative as Applicative
 import System.Random       (Random)
 
 import Data.Functor.Identity
-import Control.Monad.Trans.Writer
 
 import Control.Monad.Zip
 
@@ -575,12 +573,6 @@ testPolymorphicFunctions _ = $(testProperties [
     prop_mut_imapM_ :: P ((Int -> a -> Writer [a] ()) -> v a -> Writer [a] ())
       = (\f v -> liftRunST $ MV.imapM_ (\i x -> hoistST $ f i x) =<< V.thaw v) `eq` imapM_
 
-
-liftRunST :: (forall s. WriterT w (ST s) a) -> Writer w a
-liftRunST m = WriterT $ Identity $ runST $ runWriterT m
-
-hoistST :: Writer w a -> WriterT w (ST s) a
-hoistST = WriterT . pure . runWriter
 
 testTuplyFunctions
   :: forall a v. ( CommonContext a v

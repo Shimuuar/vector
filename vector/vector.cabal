@@ -235,7 +235,6 @@ common tests-common
     Tests.Vector.Primitive
     Tests.Vector.Unboxed
     Tests.Vector.UnitTests
-    Utilities
 
   default-extensions:
               ScopedTypeVariables,

@@ -5,6 +5,8 @@ import Test.Tasty               (TestTree)
 import Test.Tasty.QuickCheck
 import Test.QuickCheck.Property (Property(..))
 
+import Test.Vector.Orphanage    ()
+
 import Control.Monad (replicateM)
 import Control.Monad.ST (ST, runST)
 import Data.List (sort,sortBy,permutations)

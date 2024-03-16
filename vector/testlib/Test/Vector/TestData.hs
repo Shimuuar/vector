@@ -1,5 +1,9 @@
-{-# LANGUAGE CPP               #-}
-{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE CPP                        #-}
+{-# LANGUAGE DefaultSignatures          #-}
+{-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE UndecidableInstances       #-}
 -- |
 module Test.Vector.TestData
   ( -- * TestData type class
@@ -8,6 +12,12 @@ module Test.Vector.TestData
   , eq
   , Conclusion(..)
   , (===>)
+    -- ** Writer
+  , WriterT(..)
+  , Writer
+  , runWriter
+  , hoistST
+  , liftRunST
     -- * Helpers
   , limitUnfolds
   , limitUnfoldsM
@@ -17,8 +27,11 @@ module Test.Vector.TestData
   , indices
   ) where
 
+import Control.Monad.ST
+import Control.Monad.Primitive
+import qualified Control.Monad.Trans.Writer as W
 import Test.QuickCheck
-
+import Data.Functor.Identity
 import Data.Bifunctor
 import qualified Data.Vector               as V
 import qualified Data.Vector.Strict        as VV
@@ -28,7 +41,6 @@ import qualified Data.Vector.Unboxed       as VU
 import qualified Data.Vector.Generic       as VG
 import qualified Data.Vector.Fusion.Bundle as S
 
-import Data.Functor.Identity
 import Test.Vector.Orphanage ()
 
 
@@ -170,6 +182,40 @@ infixr 0 ===>
 (===>) :: TestData a => Predicate (EqTest a) -> P a -> P a
 p ===> P a = P (predicate p a)
 
+
+----------------------------------------------------------------
+-- Writer wrapper
+----------------------------------------------------------------
+
+-- | We use writer as an example of a monad. In order to avoid orphans
+--   it's defined as newtype wrapper over writer from @transformers@
+newtype WriterT w m a = WriterT { runWriterT :: W.WriterT w m a }
+  deriving (Show,Eq,Functor,Applicative,Monad,PrimMonad)
+
+type Writer w = WriterT w Identity
+
+runWriter :: Writer w a -> (a, w)
+runWriter = W.runWriter . runWriterT
+
+liftRunST :: (forall s. WriterT w (ST s) a) -> Writer w a
+liftRunST m = WriterT $ W.WriterT $ Identity $ runST $ W.runWriterT $ runWriterT m
+
+hoistST :: Writer w a -> WriterT w (ST s) a
+hoistST = WriterT . W.WriterT . pure . runWriter
+
+
+instance (Arbitrary w, Arbitrary a) => Arbitrary (Writer w a) where
+  arbitrary = do w <- arbitrary
+                 a <- arbitrary
+                 return $ WriterT $ W.writer (w,a)
+
+instance (CoArbitrary w) => CoArbitrary (Writer w ()) where
+  coarbitrary = coarbitrary . W.runWriter . runWriterT
+
+instance (Eq w, TestData w, Monoid w, Eq a, TestData a) => TestData (WriterT w Identity a) where
+  type Model (WriterT w Identity a) = Writer (Model w) (Model a)
+  model   = WriterT . W.mapWriter model   . runWriterT
+  unmodel = WriterT . W.mapWriter unmodel . runWriterT
 
 ----------------------------------------------------------------
 -- Helpers
