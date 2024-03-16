@@ -2,11 +2,19 @@
 {-# LANGUAGE DefaultSignatures #-}
 -- |
 module Test.Vector.TestData
-  ( TestData(..)
+  ( -- * TestData type class
+    TestData(..)
   , P(..)
   , eq
   , Conclusion(..)
   , (===>)
+    -- * Helpers
+  , limitUnfolds
+  , limitUnfoldsM
+  , notNull2
+  , notNullS2
+  , index_value_pairs
+  , indices
   ) where
 
 import Test.QuickCheck
@@ -17,6 +25,7 @@ import qualified Data.Vector.Strict        as VV
 import qualified Data.Vector.Primitive     as VP
 import qualified Data.Vector.Storable      as VS
 import qualified Data.Vector.Unboxed       as VU
+import qualified Data.Vector.Generic       as VG
 import qualified Data.Vector.Fusion.Bundle as S
 
 import Data.Functor.Identity
@@ -160,3 +169,55 @@ instance Conclusion p => Conclusion (a -> p) where
 infixr 0 ===>
 (===>) :: TestData a => Predicate (EqTest a) -> P a -> P a
 p ===> P a = P (predicate p a)
+
+
+----------------------------------------------------------------
+-- Helpers
+----------------------------------------------------------------
+
+-- | Because the vectors are strict, we need to be totally sure that
+--   the unfold eventually terminates. This is achieved by injecting
+--   our own bit of state into the unfold - the maximum number of
+--   unfolds allowed.
+limitUnfolds :: (b       -> Maybe (a, b))
+             -> (b, Int) -> Maybe (a, (b, Int))
+limitUnfolds f (theirs, ours)
+    | ours > 0
+    , Just (out, theirs') <- f theirs = Just (out, (theirs', ours - 1))
+    | otherwise                       = Nothing
+
+limitUnfoldsM :: (Monad m)
+              => (b       -> m (Maybe (a, b)))
+              -> (b, Int) -> m (Maybe (a, (b, Int)))
+limitUnfoldsM f (theirs, ours)
+    | ours > 0 = do r <- f theirs
+                    return $ (\(a,b) -> (a,(b,ours - 1))) `fmap` r
+    | otherwise = return Nothing
+
+
+notNull2 :: VG.Vector v a => x -> v a -> Bool
+notNull2 _ xs = not $ VG.null xs
+{-# INLINE notNull2 #-}
+
+notNullS2 :: x -> S.Bundle v a -> Bool
+notNullS2 _ s = not $ S.null s
+{-# INLINE notNullS2 #-}
+
+-- | Generate list of pair of index for vector of length @n@ and
+--   arbitrary values
+index_value_pairs :: Arbitrary a => Int -> Gen [(Int,a)]
+index_value_pairs 0 = return []
+index_value_pairs m = sized $ \n ->
+  do
+    len <- choose (0,n)
+    is <- sequence [choose (0,m-1) | _i <- [1..len]]
+    xs <- vector len
+    return $ zip is xs
+
+-- | Generate list of indices in range (0,n-1)
+indices :: Int -> Gen [Int]
+indices 0 = return []
+indices m = sized $ \n ->
+  do
+    len <- choose (0,n)
+    sequence [choose (0,m-1) | _i <- [1..len]]

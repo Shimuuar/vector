@@ -37,8 +37,6 @@ module Test.Vector.Reference
   , maxIndex
   , iterateNM
   , unfoldrM
-  , limitUnfolds
-  , limitUnfoldsM
   ) where
 
 import Control.Arrow ((***))
@@ -197,22 +195,3 @@ unfoldrM step b0 = do
       Nothing    -> return []
       Just (a,b) -> do as <- unfoldrM step b
                        return (a : as)
-
--- | Because the vectors are strict, we need to be totally sure that
---   the unfold eventually terminates. This is achieved by injecting
---   our own bit of state into the unfold - the maximum number of
---   unfolds allowed.
-limitUnfolds :: (b       -> Maybe (a, b))
-             -> (b, Int) -> Maybe (a, (b, Int))
-limitUnfolds f (theirs, ours)
-    | ours > 0
-    , Just (out, theirs') <- f theirs = Just (out, (theirs', ours - 1))
-    | otherwise                       = Nothing
-
-limitUnfoldsM :: (Monad m)
-              => (b       -> m (Maybe (a, b)))
-              -> (b, Int) -> m (Maybe (a, (b, Int)))
-limitUnfoldsM f (theirs, ours)
-    | ours > 0 = do r <- f theirs
-                    return $ (\(a,b) -> (a,(b,ours - 1))) `fmap` r
-    | otherwise = return Nothing

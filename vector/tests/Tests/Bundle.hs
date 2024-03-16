@@ -3,7 +3,6 @@
 module Tests.Bundle ( tests ) where
 
 import Boilerplater
-import Utilities
 import Test.Vector.Reference
 
 import qualified Data.Vector.Fusion.Bundle as S
