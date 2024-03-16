@@ -37,6 +37,7 @@ module Test.Vector.Reference
   , maxIndex
   , iterateNM
   , unfoldrM
+  , partitionWith
   ) where
 
 import Control.Arrow ((***))
@@ -195,3 +196,11 @@ unfoldrM step b0 = do
       Nothing    -> return []
       Just (a,b) -> do as <- unfoldrM step b
                        return (a : as)
+
+-- copied from GHC source code
+partitionWith :: (a -> Either b c) -> [a] -> ([b], [c])
+partitionWith _ [] = ([],[])
+partitionWith f (x:xs) = case f x of
+                         Left  b -> (b:bs, cs)
+                         Right c -> (bs, c:cs)
+    where (bs,cs) = partitionWith f xs

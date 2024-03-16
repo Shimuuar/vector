@@ -582,14 +582,6 @@ liftRunST m = WriterT $ Identity $ runST $ runWriterT m
 hoistST :: Writer w a -> WriterT w (ST s) a
 hoistST = WriterT . pure . runWriter
 
--- copied from GHC source code
-partitionWith :: (a -> Either b c) -> [a] -> ([b], [c])
-partitionWith _ [] = ([],[])
-partitionWith f (x:xs) = case f x of
-                         Left  b -> (b:bs, cs)
-                         Right c -> (bs, c:cs)
-    where (bs,cs) = partitionWith f xs
-
 testTuplyFunctions
   :: forall a v. ( CommonContext a v
                  , VectorContext (a, a)    v
