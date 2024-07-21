@@ -9,7 +9,7 @@ import Bench.Vector.Algo.AwShCC     (awshcc)
 import Bench.Vector.Algo.HybCC      (hybcc)
 import Bench.Vector.Algo.Quickhull  (quickhull)
 import Bench.Vector.Algo.Spectral   (spectral)
-import Bench.Vector.Algo.Tridiag    (tridiag)
+import Bench.Vector.Algo.Tridiag    (tridiag,permute)
 import Bench.Vector.Algo.FindIndexR (findIndexR, findIndexR_naive, findIndexR_manual)
 
 import Bench.Vector.TestData.ParenTree (parenTree)
@@ -65,4 +65,5 @@ main = do
     , bench "findIndexR_manual" $ whnf findIndexR_manual ((<indexFindThreshold), as)
     , bench "minimumOn"  $ whnf (U.minimumOn (\x -> x*x*x)) as
     , bench "maximumOn"  $ whnf (U.maximumOn (\x -> x*x*x)) as
+    , bench "permute"    $ whnfIO (permute 20 useSize)
     ]

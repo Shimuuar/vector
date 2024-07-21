@@ -1,6 +1,8 @@
-module Bench.Vector.Algo.Tridiag ( tridiag ) where
+module Bench.Vector.Algo.Tridiag ( tridiag, permute ) where
 
+import Control.Monad
 import Data.Vector.Unboxed as V
+import qualified Data.Vector.Unboxed.Mutable as MV
 
 tridiag :: (Vector Double, Vector Double, Vector Double, Vector Double)
             -> Vector Double
@@ -14,3 +16,10 @@ tridiag (as,bs,cs,ds) = V.prescanr' (\(c,d) x' -> d - c*x') 0
                    in
                    id `seq` (c*id, (d-d'*a)*id)
 
+
+
+permute :: Int -> Int -> IO (Vector Int)
+permute sz n_it = do
+  vec <- MV.generate sz id
+  replicateM_ n_it $ MV.nextPermutation vec
+  V.unsafeFreeze vec
