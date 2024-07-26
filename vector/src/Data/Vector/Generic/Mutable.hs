@@ -1229,6 +1229,7 @@ a given permutation. It changes the given permutation in-place.
 -- | Compute the (lexicographically) next permutation of the given vector in-place.
 -- Returns False when the input is the last permutation.
 nextPermutation :: (PrimMonad m,Ord e,MVector v e) => v (PrimState m) e -> m Bool
+{-# INLINE nextPermutation #-}
 nextPermutation v
     | dim < 2 = return False
     | otherwise = stToPrim $ do
