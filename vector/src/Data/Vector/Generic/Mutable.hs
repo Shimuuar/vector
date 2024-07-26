@@ -1231,7 +1231,7 @@ a given permutation. It changes the given permutation in-place.
 nextPermutation :: (PrimMonad m,Ord e,MVector v e) => v (PrimState m) e -> m Bool
 nextPermutation v
     | dim < 2 = return False
-    | otherwise = do
+    | otherwise = stToPrim $ do
         val <- unsafeRead v 0
         (k,l) <- loop val (-1) 0 val 1
         if k < 0
