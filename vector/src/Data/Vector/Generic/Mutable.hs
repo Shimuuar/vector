@@ -1244,7 +1244,7 @@ nextPermutation v
               | otherwise  = do
                   cur <- unsafeRead v i
                   -- TODO: make tuple unboxed
-                  let (kval',k') = if prev < cur then (prev,i-1) else (kval,k)
+                  let (!kval',!k') = if prev < cur then (prev,i-1) else (kval,k)
                       l' = if kval' < cur then i else l
                   loop kval' k' l' cur (i+1)
           dim = length v
