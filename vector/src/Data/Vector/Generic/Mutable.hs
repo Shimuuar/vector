@@ -1229,10 +1229,9 @@ a given permutation. It changes the given permutation in-place.
 -- | Compute the (lexicographically) next permutation of the given vector in-place.
 -- Returns False when the input is the last permutation.
 nextPermutation :: (PrimMonad m,Ord e,MVector v e) => v (PrimState m) e -> m Bool
-{-# INLINE nextPermutation #-}
 nextPermutation v
     | dim < 2 = return False
-    | otherwise = stToPrim $ do
+    | otherwise = do
         val <- unsafeRead v 0
         (k,l) <- loop val (-1) 0 val 1
         if k < 0
@@ -1245,7 +1244,7 @@ nextPermutation v
               | otherwise  = do
                   cur <- unsafeRead v i
                   -- TODO: make tuple unboxed
-                  let (!kval',!k') = if prev < cur then (prev,i-1) else (kval,k)
+                  let (kval',k') = if prev < cur then (prev,i-1) else (kval,k)
                       l' = if kval' < cur then i else l
                   loop kval' k' l' cur (i+1)
           dim = length v
