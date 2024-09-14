@@ -186,6 +186,7 @@ library testlib
   Default-Language: Haskell2010
   build-depends:
         base
+      , template-haskell
       , vector
       , primitive
       , QuickCheck   >= 2.9 && < 2.15
@@ -197,6 +198,7 @@ library testlib
         Test.Vector.Reference
         Test.Vector.TestData
         Test.Vector.Move
+        Test.Vector.Boilerplater
   default-extensions:
         FlexibleContexts
         FlexibleInstances
@@ -226,7 +228,6 @@ common tests-common
                , tasty-quickcheck
                , transformers >= 0.2.0.0
   Other-Modules:
-    Boilerplater
     Tests.Bundle
     Tests.Vector.Property
     Tests.Vector.Boxed

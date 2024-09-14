@@ -25,7 +25,7 @@ module Tests.Vector.Property
   , Random
   ) where
 
-import Boilerplater
+import Test.Vector.Boilerplater
 import Test.Vector.Reference as Util
 import Test.Vector.TestData
 
