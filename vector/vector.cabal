@@ -187,11 +187,16 @@ library testlib
   build-depends:
         base
       , vector
-      , QuickCheck >= 2.9 && < 2.15
+      , primitive
+      , QuickCheck   >= 2.9 && < 2.15
+      , transformers >= 0.2.0.0
+      , tasty
+      , tasty-quickcheck
   exposed-modules:
         Test.Vector.Orphanage
         Test.Vector.Reference
         Test.Vector.TestData
+        Test.Vector.Move
   default-extensions:
         FlexibleContexts
         FlexibleInstances
@@ -223,7 +228,6 @@ common tests-common
   Other-Modules:
     Boilerplater
     Tests.Bundle
-    Tests.Move
     Tests.Vector.Property
     Tests.Vector.Boxed
     Tests.Vector.Strict

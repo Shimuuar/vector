@@ -7,7 +7,7 @@ import qualified Tests.Vector.Storable
 import qualified Tests.Vector.Strict
 import qualified Tests.Vector.Unboxed
 import qualified Tests.Bundle
-import qualified Tests.Move
+import qualified Test.Vector.Move
 
 import Test.Tasty (defaultMain,testGroup)
 
@@ -21,5 +21,5 @@ main = defaultMain $ testGroup "toplevel" $ concat
     , testGroup "Tests.Vector.Unboxed" Tests.Vector.Unboxed.tests
     ]
   , Tests.Vector.UnitTests.tests
-  , Tests.Move.tests
+  , Test.Vector.Move.tests
   ]
