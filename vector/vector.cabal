@@ -100,6 +100,9 @@ common flag-Wall
     Ghc-Options: -fno-warn-orphans
     if impl(ghc >= 8.0) && impl(ghc < 8.1)
       Ghc-Options:   -Wno-redundant-constraints
+    -- Disable pointless warning about partial functions
+    if impl(ghc >= 9.8)
+      Ghc-Options:  -Wno-x-partial
 
 
 Library
